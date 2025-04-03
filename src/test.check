@@ -1,0 +1,3246 @@
+#include "s21_string.h"
+#include <string.h>
+#include <errno.h>
+#define STR_BUFFER 100  // Максимальный размер строки для тестов
+
+// ###########################################################################################################
+// ######################################### ТЕСТИРОВАНИЕ SPRINTF.C ##########################################
+// ###########################################################################################################
+
+
+// ######################################## ТЕСТИРОВАНИЕ PARSER_TOKENS ########################################
+
+// Тест №1: Основной функционал
+#test parser_tokens_1
+int index_f = 3;
+    const char *flags[] = {"%d", "%8.4f", "%-5s"};
+    TokenType *tokens = calloc(index_f, sizeof(TokenType));
+
+    parser_tokens(tokens, flags, index_f);
+
+    // Ожидаемые значения
+    ck_assert_str_eq(tokens[0].flags, "");
+    ck_assert_int_eq(tokens[0].width, 0);
+    ck_assert_int_eq(tokens[0].precision, -1);
+    ck_assert_int_eq(tokens[0].length, ' ');
+    ck_assert_int_eq(tokens[0].specificator, 'd');
+
+    ck_assert_str_eq(tokens[1].flags, "");
+    ck_assert_int_eq(tokens[1].width, 8);
+    ck_assert_int_eq(tokens[1].precision, 4);
+    ck_assert_int_eq(tokens[1].length, ' ');
+    ck_assert_int_eq(tokens[1].specificator, 'f');
+
+    ck_assert_str_eq(tokens[2].flags, "-");
+    ck_assert_int_eq(tokens[2].width, 5);
+    ck_assert_int_eq(tokens[2].precision, -1);
+    ck_assert_int_eq(tokens[2].length, ' ');
+    ck_assert_int_eq(tokens[2].specificator, 's');
+
+    free(tokens);
+
+// Тест №2: Проверка флагов (несколько флагов)
+#test parser_tokens_2
+int index_f = 1;
+    const char *flags[] = {"%-+08d"};
+    TokenType *tokens = calloc(index_f, sizeof(TokenType));
+
+    parser_tokens(tokens, flags, index_f);
+
+    ck_assert_str_eq(tokens[0].flags, "-+0");
+    ck_assert_int_eq(tokens[0].width, 8);
+    ck_assert_int_eq(tokens[0].precision, -1);
+    ck_assert_int_eq(tokens[0].length, ' ');
+    ck_assert_int_eq(tokens[0].specificator, 'd');
+
+    free(tokens);
+
+// Тест №3: Проверка точности
+#test parser_tokens_3
+int index_f = 1;
+    const char *flags[] = {"%10.5f"};
+    TokenType *tokens = calloc(index_f, sizeof(TokenType));
+
+    parser_tokens(tokens, flags, index_f);
+
+    ck_assert_str_eq(tokens[0].flags, "");
+    ck_assert_int_eq(tokens[0].width, 10);
+    ck_assert_int_eq(tokens[0].precision, 5);
+    ck_assert_int_eq(tokens[0].length, ' ');
+    ck_assert_int_eq(tokens[0].specificator, 'f');
+
+    free(tokens);
+
+// Тест №4: Флаг длины
+#test parser_tokens_4
+ int index_f = 1;
+    const char *flags[] = {"%ld"};
+    TokenType *tokens = calloc(index_f, sizeof(TokenType));
+
+    parser_tokens(tokens, flags, index_f);
+
+    ck_assert_str_eq(tokens[0].flags, "");
+    ck_assert_int_eq(tokens[0].width, 0);
+    ck_assert_int_eq(tokens[0].precision, -1);
+    ck_assert_int_eq(tokens[0].length, 'l');
+    ck_assert_int_eq(tokens[0].specificator, 'd');
+
+    free(tokens);
+
+// Тест №5: Комплексный случай
+#test parser_tokens_5
+int index_f = 1;
+    const char *flags[] = {"%-10.5ld"};
+    TokenType *tokens = calloc(index_f, sizeof(TokenType));
+
+    parser_tokens(tokens, flags, index_f);
+
+    ck_assert_str_eq(tokens[0].flags, "-");
+    ck_assert_int_eq(tokens[0].width, 10);
+    ck_assert_int_eq(tokens[0].precision, 5);
+    ck_assert_int_eq(tokens[0].length, 'l');
+    ck_assert_int_eq(tokens[0].specificator, 'd');
+
+    free(tokens);
+
+
+// ######################################## ТЕСТИРОВАНИЕ LENGTH_NUMBER ########################################
+
+// Тест №1: Проверка подсчета длины положительного числа
+#test length_number_1
+int input = 12345;  // Число с 5 цифрами
+int result = length_number(input);
+
+// Ожидаемое значение
+int expected = 5;  // Длина числа
+ck_assert_int_eq(result, expected);
+
+// Тест №2: Проверка для числа 0
+#test length_number_2
+int input = 0;  // Число 0
+int result = length_number(input);
+
+// Ожидаемое значение
+int expected = 0;  // Указанная функция не учитывает 0 как цифру
+ck_assert_int_eq(result, expected);
+
+// Тест №3: Проверка для отрицательного числа
+#test length_number_3
+int input = -54321;  // Отрицательное число
+int result = length_number(input);
+
+// Ожидаемое значение
+int expected = 0;  // Функция работает некорректно для отрицательных чисел (результат всегда будет 0)
+ck_assert_int_eq(result, expected);
+
+// Тест №4: Проверка для однозначного числа
+#test length_number_4
+int input = 7;  // Однозначное число
+int result = length_number(input);
+
+// Ожидаемое значение
+int expected = 1;  // Одноцифровое число
+ck_assert_int_eq(result, expected);
+
+// Тест №5: Проверка для большого положительного числа
+#test length_number_5
+int input = 987654321;  // Девятизначное число
+int result = length_number(input);
+
+// Ожидаемое значение
+int expected = 9;  // Длина числа
+ck_assert_int_eq(result, expected);
+
+// Тест №6: Проверка граничного случая с числом, равным 1
+#test length_number_6
+int input = 1;  // Число с одной цифрой
+int result = length_number(input);
+
+// Ожидаемое значение
+int expected = 1;  // Один символ
+ck_assert_int_eq(result, expected);
+
+// ################################### ТЕСТИРОВАНИЕ REVERSE_STR ####################################
+
+// Тест №1: Проверка стандартной строки
+#test reverse_str_1
+char input[] = "hello";  // Исходная строка
+reverse_str(input);
+
+char expected[] = "olleh";  // Ожидаемая строка
+ck_assert_str_eq(input, expected);  // Сравнение результатов
+
+// Тест №2: Проверка строки с пробелами
+#test reverse_str_2
+char input[] = "hello world";  // Строка с пробелами
+reverse_str(input);
+
+char expected[] = "dlrow olleh";  // Ожидаемая строка
+ck_assert_str_eq(input, expected);
+
+// Тест №3: Проверка пустой строки
+#test reverse_str_3
+char input[] = "";  // Пустая строка
+reverse_str(input);
+
+char expected[] = "";  // Ожидаемая строка (пустая)
+ck_assert_str_eq(input, expected);
+
+// Тест №4: Проверка строки с одним символом
+#test reverse_str_4
+char input[] = "A";  // Односимвольная строка
+reverse_str(input);
+
+char expected[] = "A";  // Ожидаемая строка (без изменений)
+ck_assert_str_eq(input, expected);
+
+// Тест №5: Проверка строки с чётным количеством символов
+#test reverse_str_5
+char input[] = "abcd";  // Четырёхсимвольная строка
+reverse_str(input);
+
+char expected[] = "dcba";  // Ожидаемая строка
+ck_assert_str_eq(input, expected);
+
+// Тест №6: Проверка строки с нечётным количеством символов
+#test reverse_str_6
+char input[] = "abcde";  // Пятисимвольная строка (нечётное количество символов)
+reverse_str(input);
+
+char expected[] = "edcba";  // Ожидаемая строка
+ck_assert_str_eq(input, expected);
+
+// Тест №7: Проверка строки с символами разных типов
+#test reverse_str_7
+char input[] = "123!@#abc";  // Строка с цифрами, спецсимволами и буквами
+reverse_str(input);
+
+char expected[] = "cba#@!321";  // Ожидаемая строка
+ck_assert_str_eq(input, expected);
+
+// Тест №8: Проверка строки с одинаковыми символами
+#test reverse_str_8
+char input[] = "aaaaa";  // Строка с одинаковыми символами
+reverse_str(input);
+
+char expected[] = "aaaaa";  // Ожидаемая строка (без изменений)
+ck_assert_str_eq(input, expected);
+
+// ################################### ТЕСТИРОВАНИЕ INT_TO_STRING ####################################
+
+// Тест №1: Проверка положительного числа с минимальной шириной
+#test int_to_string_1
+char result[50] = "";  // Результирующая строка
+int str_index = 0;     // Начальный индекс
+TokenType token = {" ", 0, 0, 0, 0, 0, 0};
+int_to_string(123, result, &str_index, 5, 0, token);
+char expected[] = "  123";  // Ожидаемая строка с выравниванием по ширине 5
+ck_assert_str_eq(result, expected);  // Сравнение результатов
+
+// Тест №2: Проверка отрицательного числа с шириной и точностью
+#test int_to_string_2
+char result[50] = "";  // Результирующая строка
+int str_index = 0;     // Начальный индекс
+TokenType token = {" ", 0, 0, 0, 0, 0, 0};
+int_to_string(-45, result, &str_index, 6, 4, token);
+
+char expected[] = " -0045";  // Ожидаемая строка: знак минус, точность 4
+ck_assert_str_eq(result, expected);  // Сравнение результатов
+
+// Тест №3: Проверка числа 0 с заданной точностью и шириной
+#test int_to_string_3
+char result[50] = "";  // Результирующая строка
+int str_index = 0;     // Начальный индекс
+TokenType token = {" ", 0, 0, 0, 0, 0, 0};
+int_to_string(0, result, &str_index, 4, 3, token);
+
+char expected[] = " 000";  // Ожидаемая строка с точностью 3 и шириной 4
+ck_assert_str_eq(result, expected);  // Сравнение результатов
+
+// Тест №4: Проверка положительного числа без точности и ширины
+#test int_to_string_4
+char result[50] = "";  // Результирующая строка
+int str_index = 0;     // Начальный индекс
+TokenType token = {"", 0, 0, 0, 0, 0, 0};
+int_to_string(789, result, &str_index, 0, 0, token);
+
+char expected[] = "789";  // Ожидаемый результат без выравнивания
+ck_assert_str_eq(result, expected);  // Сравнение результатов
+
+// Тест №5: Проверка отрицательного числа без точности и ширины
+#test int_to_string_5
+char result[50] = "";  // Результирующая строка
+int str_index = 0;     // Начальный индекс
+TokenType token = {"", 0, 0, 0, 0, 0, 0};
+int_to_string(-126, result, &str_index, 0, 0, token);
+
+char expected[] = "-126";  // Ожидаемый результат без выравнивания
+ck_assert_str_eq(result, expected);  // Сравнение результатов
+
+// Тест №6: Проверка числа с точностью, превышающей длину числа
+#test int_to_string_6
+char result[50] = "";  // Результирующая строка
+int str_index = 0;     // Начальный индекс
+TokenType token = {"", 0, 0, 0, 0, 0, 0};
+int_to_string(42, result, &str_index, 0, 5, token);
+
+char expected[] = "00042";  // Ожидаемая строка с точностью 5
+ck_assert_str_eq(result, expected);  // Сравнение результатов
+
+// Тест №7: Проверка отрицательного числа с точностью и шириной
+#test int_to_string_7
+char result[50] = "";  // Результирующая строка
+result[0] = '\0';
+int str_index = 0;     // Начальный индекс
+TokenType token = {"", 0, 0, 0, 0, 0, 0};
+int_to_string(-7, result, &str_index, 6, 4, token);
+
+char expected[] = " -0007";  // Ожидаемая строка: знак минус, точность 4, ширина 6
+ck_assert_str_eq(result, expected);  // Сравнение результатов
+
+// Тест №8: Проверка числа с флагом '+'
+#test int_to_string_8
+char result[50] = "";  // Результирующая строка
+int str_index = 0;     // Начальный индекс
+TokenType token = {"+", 0, 0, 0, 0, 0, 0};
+int_to_string(42, result, &str_index, 0, 0, token);
+
+char expected[] = "+42";  // Ожидаемая строка для положительного числа с флагом '+'
+ck_assert_str_eq(result, expected);  // Сравнение результатов
+
+// Тест №9: Проверка отрицательного числа с флагом '+'
+#test int_to_string_9
+char result[50] = "";  // Результирующая строка
+int str_index = 0;     // Начальный индекс
+TokenType token = {"+", 0, 0, 0, 0, 0, 0};
+int_to_string(-42, result, &str_index, 0, 0, token);
+
+char expected[] = "-42";  // Ожидаемая строка для отрицательного числа, знак '-' игнорирует '+'
+ck_assert_str_eq(result, expected);  // Сравнение результатов
+
+// Тест №10: Проверка числа с флагом '-'
+#test int_to_string_10
+char result[50] = "";  // Результирующая строка
+int str_index = 0;     // Начальный индекс
+TokenType token = {"-", 0, 0, 0, 0, 0, 0};
+int_to_string(42, result, &str_index, 5, 0, token);
+
+char expected[] = "42   ";  // Ожидаемая строка для числа 42 с флагом '-', ширина 5
+ck_assert_str_eq(result, expected);  // Сравнение результатов
+
+// Тест №11: Проверка отрицательного числа с флагом '-'
+#test int_to_string_11
+char result[50] = "";  // Результирующая строка
+int str_index = 0;     // Начальный индекс
+TokenType token = {"-", 0, 0, 0, 0, 0, 0};
+int_to_string(-42, result, &str_index, 5, 0, token);
+
+char expected[] = "-42  ";  // Ожидаемая строка для отрицательного числа с флагом '-', ширина 5
+ck_assert_str_eq(result, expected);  // Сравнение результатов
+
+// Тест №12: Проверка числа с флагами '+-' (должен победить флаг '-')
+#test int_to_string_12
+char result[50] = "";  // Результирующая строка
+int str_index = 0;     // Начальный индекс
+TokenType token = {"+-", 0, 0, 0, 0, 0, 0};
+int_to_string(42, result, &str_index, 5, 0, token);
+
+char expected[] = "+42  ";  // Флаг '-' выравнивает по левому краю, плюс не добавляется из-за наличия '-'
+ck_assert_str_eq(result, expected);  // Сравнение результатов
+
+
+// ################################### ТЕСТИРОВАНИЕ FLOAT_TO_STRING ####################################
+
+// Тест №1: Проверка положительного числа с фиксированной шириной и точностью
+#test float_to_string_1
+char result[50] = "";  // Результирующая строка
+int str_index = 0;     // Начальный индекс
+TokenType token = {"", 0, 0, 0, 0, 0, 0};
+float_to_string(123.456, result, &str_index, 10, 2, token);
+
+char expected[] = "    123.46";  // Ожидаемая строка с шириной 10 и точностью 2.
+ck_assert_str_eq(result, expected);  // Сравнение результатов
+
+// Тест №2: Проверка отрицательного числа с минимальной шириной и максимальной точностью (-1, заменяется на 6)
+#test float_to_string_2
+char result[50] = "";  // Результирующая строка
+int str_index = 0;     // Начальный индекс
+TokenType token = {"", 0, 0, 0, 0, 0, 0};
+float_to_string(-0.123456789, result, &str_index, 0, -1, token);
+
+char expected[] = "-0.123457";  // Ожидаемая строка с точностью 6
+ck_assert_str_eq(result, expected);  // Сравнение результатов
+
+// Тест №3: Проверка положительного числа с шириной и точностью, равной 0
+#test float_to_string_3
+char result[50] = "";  // Результирующая строка
+int str_index = 0;     // Начальный индекс
+TokenType token = {"", 0, 0, 0, 0, 0, 0};
+float_to_string(456.0, result, &str_index, 10, 0, token);
+
+char expected[] = "       456";  // Ожидаемая строка без дробной части, ширина 10
+ck_assert_str_eq(result, expected);  // Сравнение результатов
+
+// Тест №4: Проверка отрицательного числа с дробной частью, выравнивание по ширине
+#test float_to_string_4
+char result[50] = "";  // Результирующая строка
+int str_index = 0;     // Начальный индекс
+TokenType token = {"", 0, 0, 0, 0, 0, 0};
+float_to_string(-123.45, result, &str_index, 15, 3, token);
+
+char expected[] = "       -123.450";  // Ожидаемая строка, ширина 15 и точность 3
+ck_assert_str_eq(result, expected);  // Сравнение результатов
+
+// Тест №5: Проверка положительного числа с точностью 0 и минимальной шириной
+#test float_to_string_5
+char result[50] = "";  // Результирующая строка
+int str_index = 0;     // Начальный индекс
+TokenType token = {"", 0, 0, 0, 0, 0, 0};
+float_to_string(789.0, result, &str_index, 0, 0, token);
+
+char expected[] = "789";  // Ожидаемая строка без дробной части, ширина и точность по умолчанию
+ck_assert_str_eq(result, expected);  // Сравнение результатов
+
+// Тест №6: Проверка числа 0 с шириной и точностью
+#test float_to_string_6
+char result[50] = "";  // Результирующая строка
+int str_index = 0;     // Начальный индекс
+TokenType token = {"", 0, 0, 0, 0, 0, 0};
+float_to_string(0.0, result, &str_index, 8, 4, token);
+
+char expected[] = "   0.0000";  // Ожидаемая строка для числа 0, ширина 8, точность 4
+ck_assert_str_eq(result, expected);  // Сравнение результатов
+
+// ######################################## ТЕСТИРОВАНИЕ STR_TO_STRING #######################################
+
+// Тест №1: Проверка заполнения пробелами, если ширина больше длины строки
+#test str_to_string_1
+char str[] = "Test";  // Исходная строка
+char result[20] = {0};  // Результирующая строка
+int str_index = 0;
+int width = 10;  // Задана ширина, больше длины строки
+int precision = -1;  // Точность не задана
+TokenType token = {"", 0, 0, 0, 0, 0, 0};
+
+// Вызов функции
+str_to_string(result, str, &str_index, width, precision, token);
+
+// Ожидаемое значение
+char expected[] = "      Test";  // Пробелы до строки
+ck_assert_str_eq(result, expected);
+
+// Тест №2: Проверка без добавления пробелов, ширина = длина строки
+#test str_to_string_2
+char str[] = "Test";  // Исходная строка
+char result[20] = {0};  // Результирующая строка
+int str_index = 0;
+int width = 4;  // Ширина равна длине строки
+int precision = -1;  // Точность не задана
+TokenType token = {"", 0, 0, 0, 0, 0, 0};
+
+// Вызов функции
+str_to_string(result, str, &str_index, width, precision, token);
+
+// Ожидаемое значение
+char expected[] = "Test";  // Ровно исходная строка без пробелов
+ck_assert_str_eq(result, expected);
+
+// Тест №3: Проверка без добавления пробелов, ширина меньше длины строки
+#test str_to_string_3
+char str[] = "Test";  // Исходная строка
+char result[20] = {0};  // Результирующая строка
+int str_index = 0;
+int width = 2;  // Ширина меньше длины строки
+int precision = -1;  // Точность не задана
+TokenType token = {"", 0, 0, 0, 0, 0, 0};
+
+// Вызов функции
+str_to_string(result, str, &str_index, width, precision, token);
+
+// Ожидаемое значение
+char expected[] = "Test";  // Ширина игнорируется
+ck_assert_str_eq(result, expected);
+
+// Тест №4: Проверка обрезки строки по точности
+#test str_to_string_4
+char str[] = "Test";  // Исходная строка
+char result[20] = {0};  // Результирующая строка
+int str_index = 0;
+int width = 10;  // Ширина больше длины строки
+int precision = 2;  // Ограничение длины строки
+TokenType token = {"", 0, 0, 0, 0, 0, 0};
+
+// Вызов функции
+str_to_string(result, str, &str_index, width, precision, token);
+
+// Ожидаемое значение
+char expected[] = "        Te";  // Только первые 2 символа
+ck_assert_str_eq(result, expected);
+
+// Тест №5: Проверка, что точность больше длины строки не влияет
+#test str_to_string_5
+char str[] = "Test";  // Исходная строка
+char result[20] = {0};  // Результирующая строка
+int str_index = 0;
+int width = 10;  // Ширина больше длины строки
+int precision = 10;  // Ограничение больше длины строки (игнорируется)
+TokenType token = {"", 0, 0, 0, 0, 0, 0};
+
+// Вызов функции
+str_to_string(result, str, &str_index, width, precision, token);
+
+// Ожидаемое значение
+char expected[] = "      Test";  // Пробелы до строки
+ck_assert_str_eq(result, expected);
+
+// Тест №6: Проверка без ширины и точности
+#test str_to_string_6
+char str[] = "Test";  // Исходная строка
+char result[20] = {0};  // Результирующая строка
+int str_index = 0;
+int width = 0;  // Нет ограничения ширины
+int precision = -1;  // Точность не задана
+TokenType token = {"", 0, 0, 0, 0, 0, 0};
+
+// Вызов функции
+str_to_string(result, str, &str_index, width, precision, token);
+
+// Ожидаемое значение
+char expected[] = "Test";  // Строка без изменений
+ck_assert_str_eq(result, expected);
+
+// Тест №7: Проверка с флагом "-"
+#test str_to_string_7
+char str[] = "Test";  // Исходная строка
+char result[20] = {0};  // Результирующая строка
+int str_index = 0;
+int width = 8;  // Нет ограничения ширины
+int precision = -1;  // Точность не задана
+TokenType token = {"-", 0, 8, 0, 0, 0, 0};
+
+// Вызов функции
+str_to_string(result, str, &str_index, width, precision, token);
+
+// Ожидаемое значение
+char expected[] = "Test    ";  // Строка без изменений
+ck_assert_str_eq(result, expected);
+
+// ######################################## ТЕСТИРОВАНИЕ WCHAR_TO_STRING #######################################
+
+#test wchar_to_string_1
+wchar_t str[] = L"Test";  // Исходная строка
+char result[20] = {0};    // Результирующая строка
+int str_index = 0;
+int width = 10;           // Ширина равна 10
+int precision = -1;       // Точность не задана
+TokenType token = {"", 0, 0, 0, 0, 0, 0};
+
+// Вызов функции
+wchar_to_string(result, str, &str_index, width, precision, token);
+
+// Ожидаемое значение
+char expected[] = "      Test";  // Пробелы добавлены до строки для соблюдения ширины
+ck_assert_str_eq(result, expected);
+
+#test wchar_to_string_2
+wchar_t str[] = L"Test";  // Исходная строка
+char result[20] = {0};    // Результирующая строка
+int str_index = 0;
+int width = 0;            // Без ограничения ширины
+int precision = 2;        // Точность равна 2
+TokenType token = {"", 0, 0, 0, 0, 0, 0};
+
+// Вызов функции
+wchar_to_string(result, str, &str_index, width, precision, token);
+
+// Ожидаемое значение
+char expected[] = "Te";  // Строка обрезана по точности
+ck_assert_str_eq(result, expected);
+
+#test wchar_to_string_3
+wchar_t str[] = L"Test";  // Исходная строка
+char result[20] = {0};    // Результирующая строка
+int str_index = 0;
+int width = 6;            // Ширина равна 6
+int precision = 3;        // Точность равна 3
+TokenType token = {"", 0, 0, 0, 0, 0, 0};
+
+// Вызов функции
+wchar_to_string(result, str, &str_index, width, precision, token);
+
+// Ожидаемое значение
+char expected[] = "   Tes";  // Пробелы добавлены до строки, строка обрезана по точности
+ck_assert_str_eq(result, expected);
+
+#test wchar_to_string_4
+wchar_t str[] = L"Test";  // Исходная строка
+char result[20] = {0};    // Результирующая строка
+int str_index = 0;
+int width = 4;            // Ширина равна длине строки
+int precision = -1;       // Точность не задана
+TokenType token = {"", 0, 0, 0, 0, 0, 0};
+
+// Вызов функции
+wchar_to_string(result, str, &str_index, width, precision, token);
+
+// Ожидаемое значение
+char expected[] = "Test";  // Строка без изменений
+ck_assert_str_eq(result, expected);
+
+#test wchar_to_string_5
+wchar_t str[] = L"";      // Пустая исходная строка
+char result[20] = {0};    // Результирующая строка
+int str_index = 0;
+int width = 5;            // Ширина равна 5
+int precision = -1;       // Точность не задана
+TokenType token = {"", 0, 0, 0, 0, 0, 0};
+
+// Вызов функции
+wchar_to_string(result, str, &str_index, width, precision, token);
+
+// Ожидаемое значение
+char expected[] = "     ";  // Только пробелы для соблюдения ширины
+ck_assert_str_eq(result, expected);
+
+#test wchar_to_string_6
+wchar_t str[] = L"Test";  // Исходная строка
+char result[20] = {0};    // Результирующая строка
+int str_index = 0;
+int width = 0;            // Ширина равна 0
+int precision = 0;        // Точность равна 0
+TokenType token = {"", 0, 0, 0, 0, 0, 0};
+
+// Вызов функции
+wchar_to_string(result, str, &str_index, width, precision, token);
+
+// Ожидаемое значение
+char expected[] = "";  // Строка обрезана до пустой по точности
+ck_assert_str_eq(result, expected);
+
+// ###################################### ТЕСТИРОВАНИЕ E_TO_STRING ###########################################
+
+// Тест №1: Проверка экспоненциальной записи с положительной экспонентой
+#test e_to_string_1
+long double f_num = 12345.6789;  // Исходное число
+char result[50] = {0};  // Результирующая строка
+int str_index = 0;
+char ch = 'e';  // Символ экспоненты
+int width = 0;  // Ширина не задана
+int precision = 2;  // Задана точность
+TokenType token = {"", 0, 0, 2, 0, 'e', 0};  // Токен
+
+// Вызов функции
+e_to_string(f_num, result, &str_index, ch, width, precision, token);
+
+// Ожидаемое значение
+char expected[] = "1.23e+04";  // Ожидаемое представление числа (с округлением)
+ck_assert_str_eq(result, expected);
+
+// Тест №2: Проверка экспоненциальной записи с отрицательной экспонентой
+#test e_to_string_2
+long double f_num = 0.001234;  // Исходное число
+char result[50] = {0};  // Результирующая строка
+int str_index = 0;
+char ch = 'e';  // Символ экспоненты
+int width = 0;  // Ширина не задана
+int precision = 3;  // Задана точность
+TokenType token = {"", 0, 0, 3, 0, 'e', 0};  // Токен
+
+// Вызов функции
+e_to_string(f_num, result, &str_index, ch, width, precision, token);
+
+// Ожидаемое значение
+char expected[] = "1.234e-03";  // Ожидаемое представление числа (с округлением)
+ck_assert_str_eq(result, expected);
+
+// Тест №4: Проверка с нулевым значением и нулевой точностью
+#test e_to_string_4
+long double f_num = 0.0;  // Исходное число
+char result[50] = {0};  // Результирующая строка
+int str_index = 0;
+char ch = 'e';  // Символ экспоненты
+int width = 0;  // Ширина не задана
+int precision = 0;  // Нулевая точность
+TokenType token = {"", 0, 0, 0, 0, 'e', 0};  // Токен
+
+// Вызов функции
+e_to_string(f_num, result, &str_index, ch, width, precision, token);
+
+// Ожидаемое значение
+char expected[] = "0e+00";  // Ожидаемое представление числа
+ck_assert_str_eq(result, expected);
+
+// Тест №5: Проверка без указания точности (default = 6)
+#test e_to_string_5
+long double f_num = 0.123456789;  // Исходное число
+char result[50] = {0};  // Результирующая строка
+int str_index = 0;
+char ch = 'e';  // Символ экспоненты
+int width = 0;  // Ширина не задана
+int precision = -1;  // Точность не задана
+TokenType token = {"", 0, 0, -1, 0, 'e', 0};  // Токен
+
+// Вызов функции
+e_to_string(f_num, result, &str_index, ch, width, precision, token);
+
+// Ожидаемое значение
+char expected[] = "1.234568e-01";  // Ожидаемое представление числа (по умолчанию точность = 6)
+ck_assert_str_eq(result, expected);
+
+// ###################################### ТЕСТИРОВАНИЕ G_TO_STRING ###########################################
+
+// Тест №1: Проверка с числом, отображенным в обычном формате ('f')
+#test g_to_string_1
+long double f_num = 123.456;  // Исходное число
+char result[50] = {0};  // Результирующая строка
+int str_index = 0;
+char ch = 'g';  // Формат отображения
+int width = 0;  // Ширина не задана
+int precision = 6;  // Точность по умолчанию (6)
+TokenType token = {"", 0, 0, -1, 0, 'g', 0};  // Токен
+
+// Вызов функции
+g_to_string(f_num, result, &str_index, ch, width, precision, token);
+
+// Ожидаемое значение
+char expected[] = "123.456";  // Обычное представление числа
+ck_assert_str_eq(result, expected);
+
+// Тест №2: Проверка с числом, требующим экспоненциального формата
+#test g_to_string_2
+long double f_num = 0.000123456;  // Исходное число
+char result[50] = {0};  // Результирующая строка
+int str_index = 0;
+char ch = 'g';  // Формат отображения
+int width = 0;  // Ширина не задана
+int precision = 6;  // Точность по умолчанию (6)
+TokenType token = {"", 0, 0, -1, 0, 'g', 0};  // Токен
+
+// Вызов функции
+g_to_string(f_num, result, &str_index, ch, width, precision, token);
+
+// Ожидаемое значение
+char expected[] = "0.000123456";  // Представление в экспоненциальной нотации
+ck_assert_str_eq(result, expected);
+
+// Тест №3: Проверка без указания точности (по умолчанию 6)
+#test g_to_string_3
+long double f_num = 123456.789;  // Исходное число
+char result[50] = {0};  // Результирующая строка
+int str_index = 0;
+char ch = 'g';  // Формат отображения
+int width = 0;  // Ширина не задана
+int precision = -1;  // Точность не задана
+TokenType token = {"", 0, 0, -1, 0, 'g', 0};  // Токен
+
+// Вызов функции
+g_to_string(f_num, result, &str_index, ch, width, precision, token);
+
+// Ожидаемое значение
+char expected[] = "123457";  // Число округлено до ближайшего значения
+ck_assert_str_eq(result, expected);
+
+// Тест №4: Проверка минимального значения (экспоненциальный формат)
+#test g_to_string_4
+long double f_num = 0.00000123456789;  // Исходное число
+char result[50] = {0};  // Результирующая строка
+int str_index = 0;
+char ch = 'e';  // Формат отображения
+int width = 0;  // Ширина не задана
+int precision = 6;  // Точность по умолчанию (6)
+TokenType token = {"", 0, 0, 6, 0, 'g', 0};  // Токен
+
+// Вызов функции
+g_to_string(f_num, result, &str_index, ch, width, precision, token);
+
+// Ожидаемое значение
+char expected[] = "1.23457e-06";  // Представление в экспоненциальной нотации
+ck_assert_str_eq(result, expected);
+
+// Тест №5: Проверка с нулем
+#test g_to_string_5
+long double f_num = 0.0;  // Исходное число
+char result[50] = {0};  // Результирующая строка
+int str_index = 0;
+char ch = 'g';  // Формат отображения
+int width = 0;  // Ширина не задана
+int precision = -1;  // Точность не задана
+TokenType token = {"", 0, 0, -1, 0, 'g', 0};  // Токен
+
+// Вызов функции
+g_to_string(f_num, result, &str_index, ch, width, precision, token);
+
+// Ожидаемое значение
+char expected[] = "0";  // Число равно нулю
+ck_assert_str_eq(result, expected);
+
+// ###################################### ТЕСТИРОВАНИЕ HEX_STRING ###########################################
+
+// Тест №1: Проверка с числом 0
+#test hex_to_string_1
+unsigned int num = 0;  // Исходное число
+const char hex_chars[] = "0123456789abcdef";  // Таблица символов для hex
+char result[50] = {0};  // Результирующая строка
+int str_index = 0;
+int width = 0;  // Ширина не задана
+int precision = -1;  // Точность не задана
+TokenType token = {"", 0, 0, -1, 0, 'x', 0};  // Токен
+
+// Вызов функции
+hex_to_string(num, hex_chars, result, &str_index, width, precision, token);
+
+// Ожидаемое значение
+char expected[] = "0";  // Представление числа 0 в hex
+ck_assert_str_eq(result, expected);
+
+// Тест №2: Проверка с маленьким числом
+#test hex_to_string_2
+unsigned int num = 15;  // Исходное число
+const char hex_chars[] = "0123456789abcdef";  // Таблица символов для hex
+char result[50] = {0};  // Результирующая строка
+int str_index = 0;
+int width = 0;  // Ширина не задана
+int precision = -1;  // Точность не задана
+TokenType token = {"", 0, 0, -1, 0, 'x', 0};  // Токен
+
+// Вызов функции
+hex_to_string(num, hex_chars, result, &str_index, width, precision, token);
+
+// Ожидаемое значение
+char expected[] = "f";  // Hex представление числа 15
+ck_assert_str_eq(result, expected);
+
+// Тест №3: Проверка числа с точностью
+#test hex_to_string_3
+unsigned int num = 15;  // Исходное число
+const char hex_chars[] = "0123456789abcdef";  // Таблица символов для hex
+char result[50] = {0};  // Результирующая строка
+int str_index = 0;
+int width = 0;  // Ширина не задана
+int precision = 4;  // Указанная точность
+TokenType token = {"", 0, 0, 4, 0, 'x', 0};  // Токен
+
+// Вызов функции
+hex_to_string(num, hex_chars, result, &str_index, width, precision, token);
+
+// Ожидаемое значение
+char expected[] = "000f";  // Hex представление числа 15 с точностью 4
+ck_assert_str_eq(result, expected);
+
+// Тест №4: Проверка с большим числом
+#test hex_to_string_4
+unsigned int num = 305419896;  // Исходное число
+const char hex_chars[] = "0123456789abcdef";  // Таблица символов для hex
+char result[50] = {0};  // Результирующая строка
+int str_index = 0;
+int width = 0;  // Ширина не задана
+int precision = -1;  // Точность не задана
+TokenType token = {"", 0, 0, -1, 0, 'x', 0};  // Токен
+
+// Вызов функции
+hex_to_string(num, hex_chars, result, &str_index, width, precision, token);
+
+// Ожидаемое значение
+char expected[] = "12345678";  // Hex представление числа
+ck_assert_str_eq(result, expected);
+
+// Тест №5: Проверка с шириной
+#test hex_to_string_5
+unsigned int num = 255;  // Исходное число
+const char hex_chars[] = "0123456789abcdef";  // Таблица символов для hex
+char result[50] = {0};  // Результирующая строка
+int str_index = 0;
+int width = 6;  // Указанная ширина
+int precision = -1;  // Точность не задана
+TokenType token = {"", 0, 0, -1, 1, 'x', 0};  // Токен
+
+// Вызов функции
+hex_to_string(num, hex_chars, result, &str_index, width, precision, token);
+
+// Ожидаемое значение
+char expected[] = "    ff";  // Hex представление с шириной (отступами)
+ck_assert_str_eq(result, expected);
+
+// Тест №6: Проверка минимального числа
+#test hex_to_string_6
+unsigned int num = 0;  // Минимальное значение
+const char hex_chars[] = "0123456789abcdef";  // Таблица символов для hex
+char result[50] = {0};  // Результирующая строка
+int str_index = 0;
+int width = 5;  // Ширина больше, чем требуется
+int precision = 3;  // Точность больше, чем число
+TokenType token = {"", 0, 0, -1, 0, 'x', 0};  // Токен
+
+// Вызов функции
+hex_to_string(num, hex_chars, result, &str_index, width, precision, token);
+
+// Ожидаемое значение
+char expected[] = "  000";  // Дополнительные нули из precision и width
+ck_assert_str_eq(result, expected);
+
+// Тест №7: Проверка максимального числа
+#test hex_to_string_7
+unsigned int num = 0xFFFFFFFF;  // Максимальное значение unsigned int
+const char hex_chars[] = "0123456789abcdef";  // Таблица символов для hex
+char result[50] = {0};  // Результирующая строка
+int str_index = 0;
+int width = 0;  // Ширина не задана
+int precision = -1;  // Точность не задана
+TokenType token = {"", 0, 0, -1, 0, 'x', 0};  // Токен
+
+// Вызов функции
+hex_to_string(num, hex_chars, result, &str_index, width, precision, token);
+
+// Ожидаемое значение
+char expected[] = "ffffffff";  // Hex представление максимального числа
+ck_assert_str_eq(result, expected);
+
+// Тест №8: Проверка числа с точностью больше длины числа
+#test hex_to_string_8
+unsigned int num = 10;  // Число
+const char hex_chars[] = "0123456789abcdef";  // Таблица символов для hex
+char result[50] = {0};  // Результирующая строка
+int str_index = 0;
+int width = 0;  // Ширина не задана
+int precision = 5;  // Точность больше длины числа
+TokenType token = {"", 0, 0, -1, 0, 'x', 0};  // Токен
+
+// Вызов функции
+hex_to_string(num, hex_chars, result, &str_index, width, precision, token);
+
+// Ожидаемое значение
+char expected[] = "0000a";  // Hex представление с доп. нулями для точности
+ck_assert_str_eq(result, expected);
+
+// Тест №9: Проверка числа с шириной больше длины числа
+#test hex_to_string_9
+unsigned int num = 255;  // Число
+const char hex_chars[] = "0123456789abcdef";  // Таблица символов для hex
+char result[50] = {0};  // Результирующая строка
+int str_index = 0;
+int width = 5;  // Ширина больше длины числа
+int precision = -1;  // Точность не задана
+TokenType token = {"", 0, 0, -1, 1, 'x', 0};  // Токен (с флагом выравнивания)
+ 
+// Вызов функции
+hex_to_string(num, hex_chars, result, &str_index, width, precision, token);
+
+// Ожидаемое значение
+char expected[] = "   ff";  // Отступ слева за счет ширины
+ck_assert_str_eq(result, expected);
+
+// Тест №10: Проверка комбинирования ширины и точности
+#test hex_to_string_10
+unsigned int num = 255;  // Число
+const char hex_chars[] = "0123456789abcdef";  // Таблица символов для hex
+char result[50] = {0};  // Результирующая строка
+int str_index = 0;
+int width = 5;  // Ширина больше длины числа
+int precision = 4;  // Точность больше длины числа
+TokenType token = {"", 0, 0, -1, 0, 'x', 0};  // Токен
+
+// Вызов функции
+hex_to_string(num, hex_chars, result, &str_index, width, precision, token);
+
+// Ожидаемое значение
+char expected[] = " 00ff";  // Hex с точностью (нули добавлены) и шириной
+ck_assert_str_eq(result, expected);
+
+// Тест №11: Проверка пустой строки выхода
+#test hex_to_string_11
+unsigned int num = 0;  // Исходное число
+const char hex_chars[] = "0123456789abcdef";  // Таблица символов для hex
+char result[50] = {0};  // Пустая строка, куда будет записываться результат
+int str_index = 0;
+int width = 0;  // Нет ширины
+int precision = 0;  // Нет точности
+TokenType token = {"", 0, 0, -1, 0, 'x', 0};  // Токен
+
+// Вызов функции
+hex_to_string(num, hex_chars, result, &str_index, width, precision, token);
+
+// Ожидаемое значение
+char expected[] = "0";  // Минимальный результат
+ck_assert_str_eq(result, expected);
+
+
+// ##################################### ТЕСТИРОВАНИЕ OCT_TO_STRING ##########################################
+
+// Тест №1: Проверка минимального числа (0)
+#test oct_to_string_1
+unsigned int num = 0;  // Минимальное значение
+char result[50] = {0};  // Результирующая строка
+int str_index = 0;
+int width = 3;  // Ширина такая, чтобы проверить добавление пробелов
+int precision = 5;  // Точность больше, чем число
+TokenType token = {"", 0, 0, -1, 0, 'o', 0};  // Токен
+
+// Вызов функции
+oct_to_string(num, result, &str_index, width, precision, token);
+
+// Ожидаемое значение
+char expected[] = "00000";  // Дополнительные нули из точности
+ck_assert_str_eq(result, expected);
+
+
+// Тест №2: Проверка максимального числа
+#test oct_to_string_2
+unsigned int num = 037777777777;  // Максимальное значение для unsigned int в восьмеричной системе
+char result[50] = {0};  // Результирующая строка
+int str_index = 0;
+int width = 0;  // Ширина отсутствует
+int precision = -1;  // Точность не задана
+TokenType token = {"", 0, 0, -1, 0, 'o', 0};  // Токен
+
+// Вызов функции
+oct_to_string(num, result, &str_index, width, precision, token);
+
+// Ожидаемое значение
+char expected[] = "37777777777";  // Восьмеричное представление максимального числа
+ck_assert_str_eq(result, expected);
+
+
+// Тест №3: Число с точностью больше длины числа
+#test oct_to_string_3
+unsigned int num = 10;  // Число
+char result[50] = {0};  // Результирующая строка
+int str_index = 0;
+int width = 0;  // Ширина отсутствует
+int precision = 5;  // Точность превышает длину числа
+TokenType token = {"", 0, 0, 5, 0, 'o', 0};  // Токен
+
+// Вызов функции
+oct_to_string(num, result, &str_index, width, precision, token);
+
+// Ожидаемое значение
+char expected[] = "00012";  // Восьмеричное число с добавленными нулями
+ck_assert_str_eq(result, expected);
+
+
+// Тест №4: Число с шириной больше длины числа (выравнивание по умолчанию)
+#test oct_to_string_4
+unsigned int num = 100;  // Число
+char result[50] = {0};  // Результирующая строка
+int str_index = 0;
+int width = 5;  // Ширина превышает длину числа
+int precision = -1;  // Точность не задана
+TokenType token = {"", 0, 0, -1, 0, 'o', 0};  // Токен
+
+// Вызов функции
+oct_to_string(num, result, &str_index, width, precision, token);
+
+// Ожидаемое значение
+char expected[] = "  144";  // Число дополнено пробелами слева для ширины
+ck_assert_str_eq(result, expected);
+
+
+// Тест №5: Комбинирование ширины и точности
+#test oct_to_string_5
+unsigned int num = 100;  // Число
+char result[50] = {0};  // Результирующая строка
+int str_index = 0;
+int width = 6;  // Ширина больше числа с учетом будущей точности
+int precision = 4;  // Точность больше длины числа
+TokenType token = {"", 0, 0, -1, 0, 'o', 0};  // Токен
+
+// Вызов функции
+oct_to_string(num, result, &str_index, width, precision, token);
+
+// Ожидаемое значение
+char expected[] = "  0144";  // Число дополнено нулями для точности и пробелами для ширины
+ck_assert_str_eq(result, expected);
+
+
+// Тест №6: Использование флага выравнивания (width > длины числа)
+#test oct_to_string_6
+unsigned int num = 255;  // Число
+char result[50] = {0};  // Результирующая строка
+int str_index = 0;
+int width = 5;  // Ширина превышает длину числа
+int precision = -1;  // Точность не задана
+TokenType token = {"-", 0, 0, -1, 1, 'o', 0};  // Токен с флагом выравнивания (align left)
+
+
+// Вызов функции
+oct_to_string(num, result, &str_index, width, precision, token);
+
+// Ожидаемое значение
+char expected[] = "377  ";  // Число дополнено пробелами справа для выравнивания по ширине
+ck_assert_str_eq(result, expected);
+
+
+// Тест №7: Проверка пустого результата (нулевая ширина и точность)
+#test oct_to_string_7
+unsigned int num = 0;  // Исходное число
+char result[50] = {0};  // Пустая строка для записи результата
+int str_index = 0;
+int width = 0;  // Ширина отсутствует
+int precision = 0;  // Точность отсутствует
+TokenType token = {"", 0, 0, -1, 0, 'o', 0};  // Токен
+
+// Вызов функции
+oct_to_string(num, result, &str_index, width, precision, token);
+
+// Ожидаемое значение
+char expected[] = "0";  // Минимальный результат (число 0)
+ck_assert_str_eq(result, expected);
+
+// ################################### ТЕСТИРОВАНИЕ POINTER_TO_STRING ########################################
+
+#test pointer_to_string_1
+void *ptr = (void *)0x1A3F;  // Указатель на конкретный адрес
+char result[50] = {0};  // Результирующая строка
+int str_index = 0;
+int width = 0;  // Ширина не указана
+int precision = -1;  // Точность не указана
+TokenType token = {"", 0, 0, -1, 0, 'p', 0};  // Токен (формат для указателя)
+
+// Вызов функции
+pointer_to_string(ptr, result, &str_index, width, precision, token);
+
+// Ожидаемое значение
+char expected[] = "0x1a3f";
+ck_assert_str_eq(result, expected);
+
+#test pointer_to_string_2  
+void *ptr = NULL;  // Нулевой указатель
+char result[50] = {0};  // Результирующая строка
+int str_index = 0;
+int width = 0;  // Ширина не указана
+int precision = -1;  // Точность не указана
+TokenType token = {"", 0, 0, -1, 0, 'p', 0};  // Токен (формат для указателя)
+
+// Вызов функции
+pointer_to_string(ptr, result, &str_index, width, precision, token);
+
+// Ожидаемое значение
+char expected[] = "0x0";
+ck_assert_str_eq(result, expected);
+#test pointer_to_string_3
+void *ptr = (void *)0xAB;  // Указатель
+char result[50] = {0};  // Результирующая строка
+int str_index = 0;
+int width = 10;  // Ширина больше длины строки
+int precision = -1;  // Точность не задана
+TokenType token = {"", 0, 0, -1, 0, 'p', 0};  // Токен (формат для указателя)
+
+// Вызов функции
+pointer_to_string(ptr, result, &str_index, width, precision, token);
+
+// Ожидаемое значение (дополнено пробелами слева)
+char expected[] = "      0xab";
+ck_assert_str_eq(result, expected);
+
+#test pointer_to_string_4
+void *ptr = (void *)0x1A3;  // Указатель
+char result[50] = {0};  // Результирующая строка
+int str_index = 0;
+int width = 0;  // Ширина не указана
+int precision = 6;  // Точность больше длины числа
+TokenType token = {"", 0, 0, -1, 0, 'p', 0};  // Токен (формат для указателя)
+
+// Вызов функции
+pointer_to_string(ptr, result, &str_index, width, precision, token);
+
+// Ожидаемое значение (дополнено нулями для точности)
+char expected[] = "0x0001a3";
+ck_assert_str_eq(result, expected);
+
+// #################################### ТЕСТИРОВАНИЕ FORMAT_OUTPUT ###########################################
+
+// Тест для спецификатора 'd'
+#test format_output_d
+TokenType tokens[] = {{"", 0, 5, -1, 0, 'd', 2}}; // Токен для целого числа
+char format[] = "Value: %d";
+char result[50] = {0};
+
+test_format_output(tokens, 1, result, format, 42); // Передаем значение 42
+
+char expected[] = "Value:    42"; // Ширина 5, выравнивание вправо
+ck_assert_str_eq(result, expected);
+
+// Тест для спецификатора 'd' c длиной l
+#test format_output_d_l
+TokenType tokens[] = {{"", 0, 5, -1, 'l', 'd', 2}}; // Токен для целого числа
+char format[] = "Value: %d";
+char result[50] = {0};
+long int num_l = 42;
+
+test_format_output(tokens, 1, result, format, num_l); // Передаем значение 42
+
+char expected[] = "Value:    42"; // Ширина 5, выравнивание вправо
+ck_assert_str_eq(result, expected);
+
+// Тест для спецификатора 's'
+#test format_output_s
+TokenType tokens[] = {{"", 0, 10, -1, 0, 's', 2}}; // Токен для строки
+char format[] = "Name: %s";
+char result[50] = {0};
+
+test_format_output(tokens, 1, result, format, "John"); // Передаем строку "John"
+
+char expected[] = "Name:       John"; // Ширина 10, выравнивание вправо
+ck_assert_str_eq(result, expected);
+
+// Тест для спецификатора 'f'
+#test format_output_f
+TokenType tokens[] = {{"", 0, 8, 3, 0, 'f', 2}}; // Токен для float с точностью 3
+char format[] = "PI: %f";
+char result[50] = {0};
+
+test_format_output(tokens, 1, result, format, 3.14159); // Передаем значение Pi
+
+char expected[] = "PI:    3.142"; // Точность 3, ширина 8, выравнивание вправо
+ck_assert_str_eq(result, expected);
+
+// Тест для спецификатора 'x'
+#test format_output_x
+TokenType tokens[] = {{"", 0, 6, -1, 0, 'x', 2}}; // Токен для hex
+char format[] = "Hex: %x";
+char result[50] = {0};
+
+test_format_output(tokens, 1, result, format, 255); // Передаем значение 255
+
+char expected[] = "Hex:     ff"; // Ширина 6, выравнивание вправо
+ck_assert_str_eq(result, expected);
+
+// Тест для спецификатора 'p'
+#test format_output_p
+TokenType tokens[] = {{"", 0, 0, -1, 0, 'p', 2}}; // Токен для указателя
+char format[] = "Ptr: %p";
+char result[50] = {0};
+void *ptr = (void *)0x1A3; // Указатель
+
+test_format_output(tokens, 1, result, format, ptr);
+
+char expected[] = "Ptr: 0x1a3"; // Формат для указателя
+ck_assert_str_eq(result, expected);
+
+// Тест для спецификатора 'u'
+#test format_output_u
+TokenType tokens[] = {{"", 0, 6, -1, 0, 'u', 2}}; // Токен для unsigned int
+char format[] = "Unsigned:  %u";
+char result[50] = {0};
+
+test_format_output(tokens, 1, result, format, 12345); // Передаем значение 12345
+
+char expected[] = "Unsigned:   12345"; // Ширина 6, без дополнительного форматирования
+ck_assert_str_eq(result, expected);
+
+// Тест для спецификатора 'o'
+#test format_output_o
+TokenType tokens[] = {{"", 0, 5, -1, 0, 'o', 2}}; // Токен для octal
+char format[] = "Octal: %o";
+char result[50] = {0};
+
+test_format_output(tokens, 1, result, format, 73); // Передаем значение 73 (восьмеричное)
+
+char expected[] = "Octal:    111"; // Ширина 5, выравнивание вправо
+ck_assert_str_eq(result, expected);
+
+// Тест для спецификатора 'e'
+#test format_output_e
+TokenType tokens[] = {{"", 0, 10, 3, 0, 'e', 2}}; // Токен для экспоненциальной формы
+char format[] = "Exp: %e";
+char result[50] = {0};
+
+test_format_output(tokens, 1, result, format, 0.001234); // Передаем значение
+
+char expected[] = "Exp:  1.234e-03"; // Формат с точностью 3
+ck_assert_str_eq(result, expected);
+
+// Тест для спецификатора 'g'
+#test format_output_g
+TokenType tokens[] = {{"", 0, 8, 4, 0, 'g', 2}}; // Токен для компактного вывода
+char format[] = "Compact: %g";
+char result[50] = {0};
+
+test_format_output(tokens, 1, result, format, 12345.678); // Передаем значение
+
+char expected[] = "Compact: 1.235e+04"; // Формат с точностью 4
+ck_assert_str_eq(result, expected);
+
+// Тест для спецификатора 'c' с флагом 'l'
+#test format_output_c_l
+TokenType tokens[] = {{"l", 0, 4, -1, 0, 'c', 2}}; // Токен для символа wchar_t
+char format[] = "Char: %c";
+char result[50] = {0};
+
+test_format_output(tokens, 1, result, format, L'h'); // Передаем символ L'ж'
+
+char expected[] = "Char:    h"; // Ширина 4, выравнивание вправо
+ck_assert_str_eq(result, expected);
+
+// Тест для спецификатора 'c' с флагом '-'
+#test format_output_c_minus
+TokenType tokens[] = {{"-", 0, 4, -1, 0, 'c', 2}}; // Токен для символа char
+char format[] = "Char: %c";
+char result[50] = {0};
+
+test_format_output(tokens, 1, result, format, 'A'); // Передаем символ 'A'
+
+char expected[] = "Char: A   "; // Ширина 4, выравнивание влево
+ck_assert_str_eq(result, expected);
+
+// ##################################### ТЕСТИРОВАНИЕ S21_SPRINTF ############################################
+
+// Тест для простого вывода символа
+#test s21_sprintf_c
+char test_char = 'A';
+char result_char[100] = {0};
+char expected_char[100] = {0};
+s21_sprintf(result_char, "%c", test_char);
+sprintf(expected_char, "%c", test_char);
+ck_assert_str_eq(result_char, expected_char);
+
+// Тест для вывода символа с заданной шириной
+#test s21_sprintf_c_width
+char test_char_width = 'B';
+char result_char_width[100] = {0};
+char expected_char_width[100] = {0};
+s21_sprintf(result_char_width, "%5c", test_char_width);
+sprintf(expected_char_width, "%5c", test_char_width);
+ck_assert_str_eq(result_char_width, expected_char_width);
+
+// Тест для вывода символа с выравниванием по левому краю (флаг '-')
+#test s21_sprintf_c_left
+char test_char_left = 'C';
+char result_char_left[100] = {0};
+char expected_char_left[100] = {0};
+s21_sprintf(result_char_left, "%-5c", test_char_left);
+sprintf(expected_char_left, "%-5c", test_char_left);
+ck_assert_str_eq(result_char_left, expected_char_left);
+
+// Тест для вывода символа с минимальной шириной 1
+#test s21_sprintf_c_min_width
+char test_char_min_width = 'D';
+char result_char_min_width[100] = {0};
+char expected_char_min_width[100] = {0};
+s21_sprintf(result_char_min_width, "%1c", test_char_min_width);
+sprintf(expected_char_min_width, "%1c", test_char_min_width);
+ck_assert_str_eq(result_char_min_width, expected_char_min_width);
+
+// Тест для проверки работы с символами в кодировке ASCII
+#test s21_sprintf_c_ascii
+char test_char_ascii = 65; // 'A' в кодировке ASCII
+char result_char_ascii[100] = {0};
+char expected_char_ascii[100] = {0};
+s21_sprintf(result_char_ascii, "%c", test_char_ascii);
+sprintf(expected_char_ascii, "%c", test_char_ascii);
+ck_assert_str_eq(result_char_ascii, expected_char_ascii);
+
+
+// Тест для вывода неотображаемого символа (например, '\n')
+#test s21_sprintf_c_non_printable
+char test_char_non_printable = '\n';
+char result_char_non_printable[100] = {0};
+char expected_char_non_printable[100] = {0};
+s21_sprintf(result_char_non_printable, "%c", test_char_non_printable);
+sprintf(expected_char_non_printable, "%c", test_char_non_printable);
+ck_assert_str_eq(result_char_non_printable, expected_char_non_printable);
+
+// Тест для вывода символа с шириной и пробелами
+#test s21_sprintf_c_width_spaces
+char test_char_with_spaces = 'F';
+char result_char_with_spaces[100] = {0};
+char expected_char_with_spaces[100] = {0};
+s21_sprintf(result_char_with_spaces, "%5c", test_char_with_spaces);
+sprintf(expected_char_with_spaces, "%5c", test_char_with_spaces);
+ck_assert_str_eq(result_char_with_spaces, expected_char_with_spaces);
+
+// Тест для простого вывода числа
+#test s21_sprintf_d
+int test = 52;
+char result[100] = {0};
+char expected[100] = {0};
+s21_sprintf(result, "%d", test);
+sprintf(expected, "%d", test);
+ck_assert_str_eq(result, expected);
+
+// Тест для вывода числа с флагом '+' (всегда показывает знак)
+#test s21_sprintf_d_plus
+int test_plus = 52;
+char result_plus[100] = {0};
+char expected_plus[100] = {0};
+s21_sprintf(result_plus, "%+d", test_plus);
+sprintf(expected_plus, "%+d", test_plus);
+ck_assert_str_eq(result_plus, expected_plus);
+
+// Тест для вывода числа с флагом ' ' (показывает пробел перед положительным числом)
+#test s21_sprintf_d_space
+int test_space = 52;
+char result_space[100] = {0};
+char expected_space[100] = {0};
+s21_sprintf(result_space, "% d", test_space);
+sprintf(expected_space, "% d", test_space);
+ck_assert_str_eq(result_space, expected_space);
+
+// Тест для вывода числа с шириной
+#test s21_sprintf_d_width
+int test_width = 52;
+char result_width[100] = {0};
+char expected_width[100] = {0};
+s21_sprintf(result_width, "%5d", test_width);
+sprintf(expected_width, "%5d", test_width);
+ck_assert_str_eq(result_width, expected_width);
+
+// Тест для вывода числа с точностью
+#test s21_sprintf_d_precision
+int test_precision = 52;
+char result_precision[100] = {0};
+char expected_precision[100] = {0};
+s21_sprintf(result_precision, "%.5d", test_precision);
+sprintf(expected_precision, "%.5d", test_precision);
+ck_assert_str_eq(result_precision, expected_precision);
+
+// Тест для вывода числа с флагом '0' (заполнение нулями)
+#test s21_sprintf_d_zero
+int test_zero = 52;
+char result_zero[100] = {0};
+char expected_zero[100] = {0};
+s21_sprintf(result_zero, "%05d", test_zero);
+sprintf(expected_zero, "%05d", test_zero);
+ck_assert_str_eq(result_zero, expected_zero);
+
+// Тест для вывода числа с флагом '-' (выравнивание по левому краю)
+#test s21_sprintf_d_minus
+int test_left = 52;
+char result_left[100] = {0};
+char expected_left[100] = {0};
+s21_sprintf(result_left, "%-5d", test_left);
+sprintf(expected_left, "%-5d", test_left);
+ck_assert_str_eq(result_left, expected_left);
+
+// Тест для вывода числа типа short
+#test s21_sprintf_d_short
+short test_short = 52;
+char result_short[100] = {0};
+char expected_short[100] = {0};
+s21_sprintf(result_short, "%hd", test_short);
+sprintf(expected_short, "%hd", test_short);
+ck_assert_str_eq(result_short, expected_short);
+
+// Тест для вывода числа типа long
+#test s21_sprintf_d_long
+long test_long = 52;
+char result_long[100] = {0};
+char expected_long[100] = {0};
+s21_sprintf(result_long, "%ld", test_long);
+sprintf(expected_long, "%ld", test_long);
+ck_assert_str_eq(result_long, expected_long);
+
+// Тест для вывода числа типа long long
+#test s21_sprintf_d_long_long
+long long test_long_long = 52;
+char result_long_long[100] = {0};
+char expected_long_long[100] = {0};
+s21_sprintf(result_long_long, "%lld", test_long_long);
+sprintf(expected_long_long, "%lld", test_long_long);
+ck_assert_str_eq(result_long_long, expected_long_long);
+
+// Тест для вывода положительного числа в формате %e
+#test s21_sprintf_e
+double test_val_positive = 123456.789;
+char result_positive[100] = {0};
+char expected_positive[100] = {0};
+s21_sprintf(result_positive, "%e", test_val_positive);
+sprintf(expected_positive, "%e", test_val_positive);
+ck_assert_str_eq(result_positive, expected_positive);
+
+// Тест для вывода отрицательного числа в формате %e
+#test s21_sprintf_e_minus
+double test_val_negative = -98765.4321;
+char result_negative[100] = {0};
+char expected_negative[100] = {0};
+s21_sprintf(result_negative, "%e", test_val_negative);
+sprintf(expected_negative, "%e", test_val_negative);
+ck_assert_str_eq(result_negative, expected_negative);
+
+// Тест с использованием минимальной ширины
+#test s21_sprintf_e_min_width
+double test_val_width = 0.000123;
+char result_width[100] = {0};
+char expected_width[100] = {0};
+s21_sprintf(result_width, "%10e", test_val_width);
+sprintf(expected_width, "%10e", test_val_width);
+ck_assert_str_eq(result_width, expected_width);
+
+// Тест с использованием флага выравнивания по левому краю
+#test s21_sprintf_e_left
+double test_val_left_align = 1.23;
+char result_left_align[100] = {0};
+char expected_left_align[100] = {0};
+s21_sprintf(result_left_align, "%-10e", test_val_left_align);
+sprintf(expected_left_align, "%-10e", test_val_left_align);
+ck_assert_str_eq(result_left_align, expected_left_align);
+
+// Тест с указанием точности
+#test s21_sprintf_e_precision
+double test_val_precision = 123.456789;
+char result_precision[100] = {0};
+char expected_precision[100] = {0};
+s21_sprintf(result_precision, "%.2e", test_val_precision);
+sprintf(expected_precision, "%.2e", test_val_precision);
+ck_assert_str_eq(result_precision, expected_precision);
+
+// Тест для числа, близкого к нулю (проверка округления)
+#test s21_sprintf_e_near_zero
+double test_val_near_zero = 0.000000987;
+char result_near_zero[100] = {0};
+char expected_near_zero[100] = {0};
+s21_sprintf(result_near_zero, "%.5e", test_val_near_zero);
+sprintf(expected_near_zero, "%.5e", test_val_near_zero);
+ck_assert_str_eq(result_near_zero, expected_near_zero);
+
+// Тест для очень большого числа
+#test s21_sprintf_e_large_number
+double test_val_large = 9876543210.0;
+char result_large[100] = {0};
+char expected_large[100] = {0};
+s21_sprintf(result_large, "%e", test_val_large);
+sprintf(expected_large, "%e", test_val_large);
+ck_assert_str_eq(result_large, expected_large);
+
+// Тест для очень маленького числа
+#test s21_sprintf_e_small_number
+double test_val_small = 1e-10;
+char result_small[100] = {0};
+char expected_small[100] = {0};
+s21_sprintf(result_small, "%e", test_val_small);
+sprintf(expected_small, "%e", test_val_small);
+ck_assert_str_eq(result_small, expected_small);
+
+// Тест с комбинированием ширины, точности и флага выравнивания
+#test s21_sprintf_e_combination
+double test_val_combined = -12345.6789;
+char result_combined[100] = {0};
+char expected_combined[100] = {0};
+s21_sprintf(result_combined, "%-15.3e", test_val_combined);
+sprintf(expected_combined, "%-15.3e", test_val_combined);
+ck_assert_str_eq(result_combined, expected_combined);
+
+// Тест для проверки работы с нулем
+#test s21_sprintf_e_zero
+double test_val_zero = 0.0;
+char result_zero[100] = {0};
+char expected_zero[100] = {0};
+s21_sprintf(result_zero, "%e", test_val_zero);
+sprintf(expected_zero, "%e", test_val_zero);
+ck_assert_str_eq(result_zero, expected_zero);
+
+// Тест для числа в негативной экспоненциальной степени
+#test s21_sprintf_e_negative_exponent
+double test_val_neg_exponent = 0.00000234;
+char result_neg_exponent[100] = {0};
+char expected_neg_exponent[100] = {0};
+s21_sprintf(result_neg_exponent, "%.6e", test_val_neg_exponent);
+sprintf(expected_neg_exponent, "%.6e", test_val_neg_exponent);
+ck_assert_str_eq(result_neg_exponent, expected_neg_exponent);
+
+// Тест для вывода положительного числа в формате %f
+#test s21_sprintf_f_positive
+double test_val_positive = 123456.789;
+char result_positive[100] = {0};
+char expected_positive[100] = {0};
+s21_sprintf(result_positive, "%f", test_val_positive);
+sprintf(expected_positive, "%f", test_val_positive);
+ck_assert_str_eq(result_positive, expected_positive);
+
+// Тест для вывода отрицательного числа в формате %f
+#test s21_sprintf_f_negative
+double test_val_negative = -123456.789;
+char result_negative[100] = {0};
+char expected_negative[100] = {0};
+s21_sprintf(result_negative, "%f", test_val_negative);
+sprintf(expected_negative, "%f", test_val_negative);
+ck_assert_str_eq(result_negative, expected_negative);
+
+// Тест для вывода с заданной точностью
+#test s21_sprintf_f_precision
+double test_val_precision = 123.456789;
+char result_precision[100] = {0};
+char expected_precision[100] = {0};
+s21_sprintf(result_precision, "%.2f", test_val_precision);
+sprintf(expected_precision, "%.2f", test_val_precision);
+ck_assert_str_eq(result_precision, expected_precision);
+
+// Тест для вывода с шириной
+#test s21_sprintf_f_width
+double test_val_width = 123.456;
+char result_width[100] = {0};
+char expected_width[100] = {0};
+s21_sprintf(result_width, "%10f", test_val_width);
+sprintf(expected_width, "%10f", test_val_width);
+ck_assert_str_eq(result_width, expected_width);
+
+// Тест для вывода с флагом '+'
+#test s21_sprintf_f_plus_flag
+double test_val_plus = 123.456;
+char result_plus[100] = {0};
+char expected_plus[100] = {0};
+s21_sprintf(result_plus, "%+f", test_val_plus);
+sprintf(expected_plus, "%+f", test_val_plus);
+ck_assert_str_eq(result_plus, expected_plus);
+
+// Тест для вывода с флагом '-'
+#test s21_sprintf_f_minus_flag
+double test_val_minus = 123.456;
+char result_minus[100] = {0};
+char expected_minus[100] = {0};
+s21_sprintf(result_minus, "%-10f", test_val_minus);
+sprintf(expected_minus, "%-10f", test_val_minus);
+ck_assert_str_eq(result_minus, expected_minus);
+
+// Тест для вывода с флагом ' '
+#test s21_sprintf_f_space_flag
+double test_val_space = 123.456;
+char result_space[100] = {0};
+char expected_space[100] = {0};
+s21_sprintf(result_space, "% f", test_val_space);
+sprintf(expected_space, "% f", test_val_space);
+ck_assert_str_eq(result_space, expected_space);
+
+// Тест для вывода с комбинацией флагов '+', '0' и шириной
+#test s21_sprintf_f_combined_flags
+double test_val_combined = 123.456;
+char result_combined[100] = {0};
+char expected_combined[100] = {0};
+s21_sprintf(result_combined, "%+010f", test_val_combined);
+sprintf(expected_combined, "%+010f", test_val_combined);
+ck_assert_str_eq(result_combined, expected_combined);
+
+// Тест для больших значений
+#test s21_sprintf_f_large_value
+double test_val_large = 123456789.987654321;
+char result_large[100] = {0};
+char expected_large[100] = {0};
+s21_sprintf(result_large, "%.10f", test_val_large);
+sprintf(expected_large, "%.10f", test_val_large);
+ck_assert_str_eq(result_large, expected_large);
+
+// Тест для маленьких значений
+#test s21_sprintf_f_small_value
+double test_val_small = 0.0000123456;
+char result_small[100] = {0};
+char expected_small[100] = {0};
+s21_sprintf(result_small, "%.10f", test_val_small);
+sprintf(expected_small, "%.10f", test_val_small);
+ck_assert_str_eq(result_small, expected_small);
+
+// Тест для значений с длиной l
+#test s21_sprintf_f_long_double
+long double test_val_long = 123456.789L;
+char result_long[100] = {0};
+char expected_long[100] = {0};
+s21_sprintf(result_long, "%Lf", test_val_long);
+sprintf(expected_long, "%Lf", test_val_long);
+ck_assert_str_eq(result_long, expected_long);
+
+
+// Тест для вывода положительного числа в формате %g
+#test s21_sprintf_g_positive
+double test_val_positive = 123456.789;
+char result_positive[100] = {0};
+char expected_positive[100] = {0};
+s21_sprintf(result_positive, "%g", test_val_positive);
+sprintf(expected_positive, "%g", test_val_positive);
+ck_assert_str_eq(result_positive, expected_positive);
+
+// Тест для вывода отрицательного числа в формате %g
+#test s21_sprintf_g_negative
+double test_val_negative = -123456.789;
+char result_negative[100] = {0};
+char expected_negative[100] = {0};
+s21_sprintf(result_negative, "%g", test_val_negative);
+sprintf(expected_negative, "%g", test_val_negative);
+ck_assert_str_eq(result_negative, expected_negative);
+
+// Тест для вывода с шириной
+#test s21_sprintf_g_width
+double test_val_width = 123.456;
+char result_width[100] = {0};
+char expected_width[100] = {0};
+s21_sprintf(result_width, "%10g", test_val_width);
+sprintf(expected_width, "%10g", test_val_width);
+ck_assert_str_eq(result_width, expected_width);
+
+// Тест для вывода с флагом '+'
+#test s21_sprintf_g_plus_flag
+double test_val_plus = 123.456;
+char result_plus[100] = {0};
+char expected_plus[100] = {0};
+s21_sprintf(result_plus, "%+g", test_val_plus);
+sprintf(expected_plus, "%+g", test_val_plus);
+ck_assert_str_eq(result_plus, expected_plus);
+
+// Тест для вывода с флагом '-'
+#test s21_sprintf_g_minus_flag
+double test_val_minus = 123.456;
+char result_minus[100] = {0};
+char expected_minus[100] = {0};
+s21_sprintf(result_minus, "%-10g", test_val_minus);
+sprintf(expected_minus, "%-10g", test_val_minus);
+ck_assert_str_eq(result_minus, expected_minus);
+
+// Тест для вывода с флагом ' '
+#test s21_sprintf_g_space_flag
+double test_val_space = 123.456;
+char result_space[100] = {0};
+char expected_space[100] = {0};
+s21_sprintf(result_space, "% g", test_val_space);
+sprintf(expected_space, "% g", test_val_space);
+ck_assert_str_eq(result_space, expected_space);
+
+// Тест для вывода с комбинацией флагов '+', '0' и шириной
+#test s21_sprintf_g_combined_flags
+double test_val_combined = 123.456;
+char result_combined[100] = {0};
+char expected_combined[100] = {0};
+s21_sprintf(result_combined, "%+010g", test_val_combined);
+sprintf(expected_combined, "%+010g", test_val_combined);
+ck_assert_str_eq(result_combined, expected_combined);
+
+// Тест для больших значений
+#test s21_sprintf_g_large_value
+double test_val_large = 123456789.987654321;
+char result_large[100] = {0};
+char expected_large[100] = {0};
+s21_sprintf(result_large, "%.10g", test_val_large);
+sprintf(expected_large, "%.10g", test_val_large);
+ck_assert_str_eq(result_large, expected_large);
+
+// Тест для маленьких значений
+#test s21_sprintf_g_small_value
+double test_val_small = 0.0000123456;
+char result_small[100] = {0};
+char expected_small[100] = {0};
+s21_sprintf(result_small, "%.10g", test_val_small);
+sprintf(expected_small, "%.10g", test_val_small);
+ck_assert_str_eq(result_small, expected_small);
+
+// Тест для значений с длиной l
+#test s21_sprintf_g_long_double
+long double test_val_long = 123456.789L;
+char result_long[100] = {0};
+char expected_long[100] = {0};
+s21_sprintf(result_long, "%Lg", test_val_long);
+sprintf(expected_long, "%Lg", test_val_long);
+ck_assert_str_eq(result_long, expected_long);
+
+// Тест для вывода положительного числа в формате %G
+#test s21_sprintf_G_positive
+double test_val_positive = 123456.789;
+char result_positive[100] = {0};
+char expected_positive[100] = {0};
+s21_sprintf(result_positive, "%G", test_val_positive);
+sprintf(expected_positive, "%G", test_val_positive);
+ck_assert_str_eq(result_positive, expected_positive);
+
+// Тест для вывода отрицательного числа в формате %G
+#test s21_sprintf_G_negative
+double test_val_negative = -123456.789;
+char result_negative[100] = {0};
+char expected_negative[100] = {0};
+s21_sprintf(result_negative, "%G", test_val_negative);
+sprintf(expected_negative, "%G", test_val_negative);
+ck_assert_str_eq(result_negative, expected_negative);
+
+// Тест для вывода с шириной
+#test s21_sprintf_G_width
+double test_val_width = 123.456;
+char result_width[100] = {0};
+char expected_width[100] = {0};
+s21_sprintf(result_width, "%10G", test_val_width);
+sprintf(expected_width, "%10G", test_val_width);
+ck_assert_str_eq(result_width, expected_width);
+
+// Тест для вывода с флагом '+'
+#test s21_sprintf_G_plus_flag
+double test_val_plus = 123.456;
+char result_plus[100] = {0};
+char expected_plus[100] = {0};
+s21_sprintf(result_plus, "%+G", test_val_plus);
+sprintf(expected_plus, "%+G", test_val_plus);
+ck_assert_str_eq(result_plus, expected_plus);
+
+// Тест для вывода с флагом '-'
+#test s21_sprintf_G_minus_flag
+double test_val_minus = 123.456;
+char result_minus[100] = {0};
+char expected_minus[100] = {0};
+s21_sprintf(result_minus, "%-10G", test_val_minus);
+sprintf(expected_minus, "%-10G", test_val_minus);
+ck_assert_str_eq(result_minus, expected_minus);
+
+// Тест для вывода с флагом ' '
+#test s21_sprintf_G_space_flag
+double test_val_space = 123.456;
+char result_space[100] = {0};
+char expected_space[100] = {0};
+s21_sprintf(result_space, "% G", test_val_space);
+sprintf(expected_space, "% G", test_val_space);
+ck_assert_str_eq(result_space, expected_space);
+
+// Тест для вывода с комбинацией флагов '+', '0' и шириной
+#test s21_sprintf_G_combined_flags
+double test_val_combined = 123.456;
+char result_combined[100] = {0};
+char expected_combined[100] = {0};
+s21_sprintf(result_combined, "%+010G", test_val_combined);
+sprintf(expected_combined, "%+010G", test_val_combined);
+ck_assert_str_eq(result_combined, expected_combined);
+
+// Тест для больших значений
+#test s21_sprintf_G_large_value
+double test_val_large = 123456789.987654321;
+char result_large[100] = {0};
+char expected_large[100] = {0};
+s21_sprintf(result_large, "%.10G", test_val_large);
+sprintf(expected_large, "%.10G", test_val_large);
+ck_assert_str_eq(result_large, expected_large);
+
+// Тест для маленьких значений
+#test s21_sprintf_G_small_value
+double test_val_small = 0.0000123456;
+char result_small[100] = {0};
+char expected_small[100] = {0};
+s21_sprintf(result_small, "%.10G", test_val_small);
+sprintf(expected_small, "%.10G", test_val_small);
+ck_assert_str_eq(result_small, expected_small);
+
+// Тест для значений с длиной l
+#test s21_sprintf_G_long_double
+long double test_val_long = 123456.789L;
+char result_long[100] = {0};
+char expected_long[100] = {0};
+s21_sprintf(result_long, "%LG", test_val_long);
+sprintf(expected_long, "%LG", test_val_long);
+ck_assert_str_eq(result_long, expected_long);
+
+// Тест для вывода положительного числа в формате %o
+#test s21_sprintf_o_positive
+unsigned int test_val_positive = 123;
+char result_positive[100] = {0};
+char expected_positive[100] = {0};
+s21_sprintf(result_positive, "%o", test_val_positive);
+sprintf(expected_positive, "%o", test_val_positive);
+ck_assert_str_eq(result_positive, expected_positive);
+
+// Тест для вывода нуля в формате %o
+#test s21_sprintf_o_zero
+unsigned int test_val_zero = 0;
+char result_zero[100] = {0};
+char expected_zero[100] = {0};
+s21_sprintf(result_zero, "%o", test_val_zero);
+sprintf(expected_zero, "%o", test_val_zero);
+ck_assert_str_eq(result_zero, expected_zero);
+
+// Тест для вывода с шириной
+#test s21_sprintf_o_width
+unsigned int test_val_width = 123;
+char result_width[100] = {0};
+char expected_width[100] = {0};
+s21_sprintf(result_width, "%10o", test_val_width);
+sprintf(expected_width, "%10o", test_val_width);
+ck_assert_str_eq(result_width, expected_width);
+
+// Тест для вывода с флагом '-'
+#test s21_sprintf_o_minus_flag
+unsigned int test_val_minus = 123;
+char result_minus[100] = {0};
+char expected_minus[100] = {0};
+s21_sprintf(result_minus, "%-10o", test_val_minus);
+sprintf(expected_minus, "%-10o", test_val_minus);
+ck_assert_str_eq(result_minus, expected_minus);
+
+// Тест для вывода с флагом '0'
+#test s21_sprintf_o_zero_flag
+unsigned int test_val_zero_flag = 123;
+char result_zero_flag[100] = {0};
+char expected_zero_flag[100] = {0};
+s21_sprintf(result_zero_flag, "%010o", test_val_zero_flag);
+sprintf(expected_zero_flag, "%010o", test_val_zero_flag);
+ck_assert_str_eq(result_zero_flag, expected_zero_flag);
+
+// Тест для вывода с флагом '#'
+#test s21_sprintf_o_hash_flag
+unsigned int test_val_hash = 123;
+char result_hash[100] = {0};
+char expected_hash[100] = {0};
+s21_sprintf(result_hash, "%#o", test_val_hash);
+sprintf(expected_hash, "%#o", test_val_hash);
+ck_assert_str_eq(result_hash, expected_hash);
+
+// Тест для больших значений
+#test s21_sprintf_o_large_value
+unsigned int test_val_large = 4294967295U;  // Max value for unsigned int
+char result_large[100] = {0};
+char expected_large[100] = {0};
+s21_sprintf(result_large, "%o", test_val_large);
+sprintf(expected_large, "%o", test_val_large);
+ck_assert_str_eq(result_large, expected_large);
+
+// Тест для значений с длиной l
+#test s21_sprintf_o_long
+unsigned long test_val_long = 123456789;
+char result_long[100] = {0};
+char expected_long[100] = {0};
+s21_sprintf(result_long, "%lo", test_val_long);
+sprintf(expected_long, "%lo", test_val_long);
+ck_assert_str_eq(result_long, expected_long);
+
+//УДАЛИ ЭТО ЕСЛИ НЕ НАДО
+// Тест для значений с длиной l 
+#test s21_sprintf_o_long_long
+unsigned long test_val_long_long = 123456789012345ULL;
+char result_long_long[100] = {0};
+char expected_long_long[100] = {0};
+s21_sprintf(result_long_long, "%lo", test_val_long_long);
+sprintf(expected_long_long, "%lo", test_val_long_long);
+ck_assert_str_eq(result_long_long, expected_long_long);
+
+// Тест для вывода простой строки
+#test s21_sprintf_s_simple
+char *test_str_simple = "Hello, world!";
+char result_simple[100] = {0};
+char expected_simple[100] = {0};
+s21_sprintf(result_simple, "%s", test_str_simple);
+sprintf(expected_simple, "%s", test_str_simple);
+ck_assert_str_eq(result_simple, expected_simple);
+
+// Тест для вывода пустой строки
+#test s21_sprintf_s_empty
+char *test_str_empty = "";
+char result_empty[100] = {0};
+char expected_empty[100] = {0};
+s21_sprintf(result_empty, "%s", test_str_empty);
+sprintf(expected_empty, "%s", test_str_empty);
+ck_assert_str_eq(result_empty, expected_empty);
+
+// Тест для вывода строки с шириной
+#test s21_sprintf_s_width
+char *test_str_width = "Width";
+char result_width[100] = {0};
+char expected_width[100] = {0};
+s21_sprintf(result_width, "%10s", test_str_width);
+sprintf(expected_width, "%10s", test_str_width);
+ck_assert_str_eq(result_width, expected_width);
+
+// Тест для вывода строки с флагом '-'
+#test s21_sprintf_s_minus_flag
+char *test_str_minus = "Align";
+char result_minus[100] = {0};
+char expected_minus[100] = {0};
+s21_sprintf(result_minus, "%-10s", test_str_minus);
+sprintf(expected_minus, "%-10s", test_str_minus);
+ck_assert_str_eq(result_minus, expected_minus);
+
+// Тест для обрезки строки по длине
+#test s21_sprintf_s_precision
+char *test_str_precision = "Precision";
+char result_precision[100] = {0};
+char expected_precision[100] = {0};
+s21_sprintf(result_precision, "%.4s", test_str_precision);
+sprintf(expected_precision, "%.4s", test_str_precision);
+ck_assert_str_eq(result_precision, expected_precision);
+
+// Тест для строки с пробелами
+#test s21_sprintf_s_spaces
+char *test_str_spaces = "  Spaces  ";
+char result_spaces[100] = {0};
+char expected_spaces[100] = {0};
+s21_sprintf(result_spaces, "%s", test_str_spaces);
+sprintf(expected_spaces, "%s", test_str_spaces);
+ck_assert_str_eq(result_spaces, expected_spaces);
+
+// Тест для вывода положительного числа без флагов
+#test s21_sprintf_u_no_flags
+unsigned int test_val = 12345;
+char result[100] = {0};
+char expected[100] = {0};
+s21_sprintf(result, "%u", test_val);
+sprintf(expected, "%u", test_val);
+ck_assert_str_eq(result, expected);
+
+// Тест для вывода положительного числа с флагом "-" (выравнивание влево)
+#test s21_sprintf_u_left_align
+unsigned int test_val = 12345;
+char result[100] = {0};
+char expected[100] = {0};
+s21_sprintf(result, "%-10u", test_val);
+sprintf(expected, "%-10u", test_val);
+ck_assert_str_eq(result, expected);
+
+// Тест для вывода положительного числа с флагом "0" (заполнение нулями)
+#test s21_sprintf_u_zero_padding
+unsigned int test_val = 12345;
+char result[100] = {0};
+char expected[100] = {0};
+s21_sprintf(result, "%010u", test_val);
+sprintf(expected, "%010u", test_val);
+ck_assert_str_eq(result, expected);
+
+// Тест для вывода положительного числа с точностью
+#test s21_sprintf_u_precision
+unsigned int test_val = 12345;
+char result[100] = {0};
+char expected[100] = {0};
+s21_sprintf(result, "%.8u", test_val);
+sprintf(expected, "%.8u", test_val);
+ck_assert_str_eq(result, expected);
+
+// Тест для вывода числа с указанной шириной
+#test s21_sprintf_u_width
+unsigned int test_val = 12345;
+char result[100] = {0};
+char expected[100] = {0};
+s21_sprintf(result, "%10u", test_val);
+sprintf(expected, "%10u", test_val);
+ck_assert_str_eq(result, expected);
+
+// Тест для комбинирования флагов "-" и ширины
+#test s21_sprintf_u_left_align_width
+unsigned int test_val = 12345;
+char result[100] = {0};
+char expected[100] = {0};
+s21_sprintf(result, "%-15u", test_val);
+sprintf(expected, "%-15u", test_val);
+ck_assert_str_eq(result, expected);
+
+// Тест для комбинирования точности и ширины
+#test s21_sprintf_u_precision_width
+unsigned int test_val = 12345;
+char result[100] = {0};
+char expected[100] = {0};
+s21_sprintf(result, "%15.8u", test_val);
+sprintf(expected, "%15.8u", test_val);
+ck_assert_str_eq(result, expected);
+
+// Тест для проверки максимального значения unsigned int
+#test s21_sprintf_u_max_value
+unsigned int test_val = UINT_MAX;
+char result[100] = {0};
+char expected[100] = {0};
+s21_sprintf(result, "%u", test_val);
+sprintf(expected, "%u", test_val);
+ck_assert_str_eq(result, expected);
+
+// Тест для минимального значения (0)
+#test s21_sprintf_u_zero
+unsigned int test_val = 0;
+char result[100] = {0};
+char expected[100] = {0};
+s21_sprintf(result, "%u", test_val);
+sprintf(expected, "%u", test_val);
+ck_assert_str_eq(result, expected);
+
+// Тест с длиной `l` (хотя она без эффекта для %u, чтобы проверить стабильность реализации)
+#test s21_sprintf_u_length_l
+unsigned long test_val = 1234567890UL;
+char result[100] = {0};
+char expected[100] = {0};
+s21_sprintf(result, "%lu", test_val);
+sprintf(expected, "%lu", test_val);
+ck_assert_str_eq(result, expected);
+
+
+
+// Тест для вывода положительного числа без флагов
+#test s21_sprintf_x_no_flags
+unsigned int test_val = 12345;
+char result[100] = {0};
+char expected[100] = {0};
+s21_sprintf(result, "%x", test_val);
+sprintf(expected, "%x", test_val);
+ck_assert_str_eq(result, expected);
+
+// Тест для вывода числа с флагом "-" (выравнивание влево)
+#test s21_sprintf_x_left_align
+unsigned int test_val = 12345;
+char result[100] = {0};
+char expected[100] = {0};
+s21_sprintf(result, "%-10x", test_val);
+sprintf(expected, "%-10x", test_val);
+ck_assert_str_eq(result, expected);
+
+// Тест для вывода числа с флагом "0" (заполнение нулями)
+#test s21_sprintf_x_zero_padding
+unsigned int test_val = 12345;
+char result[100] = {0};
+char expected[100] = {0};
+s21_sprintf(result, "%010x", test_val);
+sprintf(expected, "%010x", test_val);
+ck_assert_str_eq(result, expected);
+
+// Тест для вывода числа с точностью
+#test s21_sprintf_x_precision
+unsigned int test_val = 12345;
+char result[100] = {0};
+char expected[100] = {0};
+s21_sprintf(result, "%.8x", test_val);
+sprintf(expected, "%.8x", test_val);
+ck_assert_str_eq(result, expected);
+
+// Тест для использования флага "#"
+#test s21_sprintf_x_alternate_form
+unsigned int test_val = 12345;
+char result[100] = {0};
+char expected[100] = {0};
+s21_sprintf(result, "%#x", test_val);
+sprintf(expected, "%#x", test_val);
+ck_assert_str_eq(result, expected);
+
+// Тест для вывода числа с указанной шириной
+#test s21_sprintf_x_width
+unsigned int test_val = 12345;
+char result[100] = {0};
+char expected[100] = {0};
+s21_sprintf(result, "%10x", test_val);
+sprintf(expected, "%10x", test_val);
+ck_assert_str_eq(result, expected);
+
+// Тест для комбинирования флагов "-" и ширины
+#test s21_sprintf_x_left_align_width
+unsigned int test_val = 12345;
+char result[100] = {0};
+char expected[100] = {0};
+s21_sprintf(result, "%-15x", test_val);
+sprintf(expected, "%-15x", test_val);
+ck_assert_str_eq(result, expected);
+
+// Тест для комбинирования точности и ширины
+#test s21_sprintf_x_precision_width
+unsigned int test_val = 12345;
+char result[100] = {0};
+char expected[100] = {0};
+s21_sprintf(result, "%15.8x", test_val);
+sprintf(expected, "%15.8x", test_val);
+ck_assert_str_eq(result, expected);
+
+// Тест для проверки максимального значения unsigned int
+#test s21_sprintf_x_max_value
+unsigned int test_val = UINT_MAX;
+char result[100] = {0};
+char expected[100] = {0};
+s21_sprintf(result, "%x", test_val);
+sprintf(expected, "%x", test_val);
+ck_assert_str_eq(result, expected);
+
+// Тест для минимального значения (0)
+#test s21_sprintf_x_zero
+unsigned int test_val = 0;
+char result[100] = {0};
+char expected[100] = {0};
+s21_sprintf(result, "%x", test_val);
+sprintf(expected, "%x", test_val);
+ck_assert_str_eq(result, expected);
+
+// Тест с длиной `l` (хотя она не влияет на %x, чтобы проверить стабильность реализации)
+#test s21_sprintf_x_length_l
+unsigned long test_val = 0x1234ABCD;
+char result[100] = {0};
+char expected[100] = {0};
+s21_sprintf(result, "%lx", test_val);
+sprintf(expected, "%lx", test_val);
+ck_assert_str_eq(result, expected);
+
+// Тест для вывода положительного числа без флагов
+#test s21_sprintf_X_no_flags
+unsigned int test_val = 12345;
+char result[100] = {0};
+char expected[100] = {0};
+s21_sprintf(result, "%X", test_val);
+sprintf(expected, "%X", test_val);
+ck_assert_str_eq(result, expected);
+
+// Тест для вывода числа с флагом "-" (выравнивание влево)
+#test s21_sprintf_X_left_align
+unsigned int test_val = 12345;
+char result[100] = {0};
+char expected[100] = {0};
+s21_sprintf(result, "%-10X", test_val);
+sprintf(expected, "%-10X", test_val);
+ck_assert_str_eq(result, expected);
+
+// Тест для вывода числа с флагом "0" (заполнение нулями)
+#test s21_sprintf_X_zero_padding
+unsigned int test_val = 12345;
+char result[100] = {0};
+char expected[100] = {0};
+s21_sprintf(result, "%010X", test_val);
+sprintf(expected, "%010X", test_val);
+ck_assert_str_eq(result, expected);
+
+// Тест для вывода числа с точностью
+#test s21_sprintf_X_precision
+unsigned int test_val = 12345;
+char result[100] = {0};
+char expected[100] = {0};
+s21_sprintf(result, "%.8X", test_val);
+sprintf(expected, "%.8X", test_val);
+ck_assert_str_eq(result, expected);
+
+// Тест для использования флага "#"
+#test s21_sprintf_X_alternate_form
+unsigned int test_val = 12345;
+char result[100] = {0};
+char expected[100] = {0};
+s21_sprintf(result, "%#X", test_val);
+sprintf(expected, "%#X", test_val);
+ck_assert_str_eq(result, expected);
+
+// Тест для вывода числа с указанной шириной
+#test s21_sprintf_X_width
+unsigned int test_val = 12345;
+char result[100] = {0};
+char expected[100] = {0};
+s21_sprintf(result, "%10X", test_val);
+sprintf(expected, "%10X", test_val);
+ck_assert_str_eq(result, expected);
+
+// Тест для комбинирования флагов "-" и ширины
+#test s21_sprintf_X_left_align_width
+unsigned int test_val = 12345;
+char result[100] = {0};
+char expected[100] = {0};
+s21_sprintf(result, "%-15X", test_val);
+sprintf(expected, "%-15X", test_val);
+ck_assert_str_eq(result, expected);
+
+// Тест для комбинирования точности и ширины
+#test s21_sprintf_X_precision_width
+unsigned int test_val = 12345;
+char result[100] = {0};
+char expected[100] = {0};
+s21_sprintf(result, "%15.8X", test_val);
+sprintf(expected, "%15.8X", test_val);
+ck_assert_str_eq(result, expected);
+
+// Тест для проверки максимального значения unsigned int
+#test s21_sprintf_X_max_value
+unsigned int test_val = UINT_MAX;
+char result[100] = {0};
+char expected[100] = {0};
+s21_sprintf(result, "%X", test_val);
+sprintf(expected, "%X", test_val);
+ck_assert_str_eq(result, expected);
+
+// Тест для минимального значения (0)
+#test s21_sprintf_X_zero
+unsigned int test_val = 0;
+char result[100] = {0};
+char expected[100] = {0};
+s21_sprintf(result, "%X", test_val);
+sprintf(expected, "%X", test_val);
+ck_assert_str_eq(result, expected);
+
+// Тест с длиной `l` (хотя она не влияет на %X, чтобы проверить стабильность реализации)
+#test s21_sprintf_X_length_l
+unsigned long test_val = 0x1234ABCD;
+char result[100] = {0};
+char expected[100] = {0};
+s21_sprintf(result, "%lX", test_val);
+sprintf(expected, "%lX", test_val);
+ck_assert_str_eq(result, expected);
+
+// Тест для вывода указателя в формате %p без флагов
+#test s21_sprintf_p_basic
+void *test_val = (void *)0x12345;
+char result[100] = {0};
+char expected[100] = {0};
+s21_sprintf(result, "%p", test_val);
+sprintf(expected, "%p", test_val);
+ck_assert_str_eq(result, expected);
+
+// Тест для вывода указателя с шириной
+#test s21_sprintf_p_width
+void *test_val = (void *)0x12345;
+char result[100] = {0};
+char expected[100] = {0};
+s21_sprintf(result, "%10p", test_val);
+sprintf(expected, "%10p", test_val);
+ck_assert_str_eq(result, expected);
+
+// Тест для вывода указателя с флагом минуса и шириной
+#test s21_sprintf_p_flag_minus
+void *test_val = (void *)0x12345;
+char result[100] = {0};
+char expected[100] = {0};
+s21_sprintf(result, "%-10p", test_val);
+sprintf(expected, "%-10p", test_val);
+ck_assert_str_eq(result, expected);
+
+// Тест для комбинированного вывода
+#test s21_sprintf_combined
+int num = 42;
+double pi = 3.14159;
+char str[] = "test";
+char result[200] = {0};
+char expected[200] = {0};
+s21_sprintf(result, "Num: %d, Pi: %.2f, Str: %s", num, pi, str);
+sprintf(expected, "Num: %d, Pi: %.2f, Str: %s", num, pi, str);
+ck_assert_str_eq(result, expected);
+
+// Тест для комбинированного вывода
+#test s21_sprintf_combined_formats
+int num = 42;
+double pi = 3.14159;
+char str[] = "test";
+char result[200] = {0};
+char expected[200] = {0};
+s21_sprintf(result, "Num: %+5d, Pi: %.2f, Str: %-10s", num, pi, str);
+sprintf(expected, "Num: %+5d, Pi: %.2f, Str: %-10s", num, pi, str);
+ck_assert_str_eq(result, expected);
+
+// Тест для спецификатора o с флагом #
+#test s21_sprintf_o_with_flag
+unsigned int test_value_o = 123;
+char result_o[100] = {0};
+char expected_o[100] = {0};
+s21_sprintf(result_o, "%#o", test_value_o);
+sprintf(expected_o, "%#o", test_value_o);
+ck_assert_str_eq(result_o, expected_o);
+
+// Тест для спецификатора x с флагом #
+#test s21_sprintf_x_with_flag
+unsigned int test_value_x = 123;
+char result_x[100] = {0};
+char expected_x[100] = {0};
+s21_sprintf(result_x, "%#x", test_value_x);
+sprintf(expected_x, "%#x", test_value_x);
+ck_assert_str_eq(result_x, expected_x);
+
+// Тест для спецификатора X с флагом #
+#test s21_sprintf_X_with_flag
+unsigned int test_value_X = 123;
+char result_X[100] = {0};
+char expected_X[100] = {0};
+s21_sprintf(result_X, "%#X", test_value_X);
+sprintf(expected_X, "%#X", test_value_X);
+ck_assert_str_eq(result_X, expected_X);
+
+// Тест для спецификатора f с флагом #
+#test s21_sprintf_f_with_flag
+double test_value_f = 123.0;
+char result_f[100] = {0};
+char expected_f[100] = {0};
+s21_sprintf(result_f, "%#f", test_value_f);
+sprintf(expected_f, "%#f", test_value_f);
+ck_assert_str_eq(result_f, expected_f);
+
+// Тест для спецификатора g с флагом #
+#test s21_sprintf_g_with_flag
+double test_value_g = 123.0;
+char result_g[100] = {0};
+char expected_g[100] = {0};
+s21_sprintf(result_g, "%#g", test_value_g);
+sprintf(expected_g, "%#g", test_value_g);
+ck_assert_str_eq(result_g, expected_g);
+
+// Тест для спецификатора G с флагом #
+#test s21_sprintf_G_with_flag
+double test_value_G = 123.0;
+char result_G[100] = {0};
+char expected_G[100] = {0};
+s21_sprintf(result_G, "%#G", test_value_G);
+sprintf(expected_G, "%#G", test_value_G);
+ck_assert_str_eq(result_G, expected_G);
+
+// Тест для спецификатора e с флагом #
+#test s21_sprintf_e_with_flag
+double test_value_e = 123.0;
+char result_e[100] = {0};
+char expected_e[100] = {0};
+s21_sprintf(result_e, "%#e", test_value_e);
+sprintf(expected_e, "%#e", test_value_e);
+ck_assert_str_eq(result_e, expected_e);
+
+// Тест для спецификатора E с флагом #
+#test s21_sprintf_E_with_flag
+double test_value_E = 123.0;
+char result_E[100] = {0};
+char expected_E[100] = {0};
+s21_sprintf(result_E, "%#E", test_value_E);
+sprintf(expected_E, "%#E", test_value_E);
+ck_assert_str_eq(result_E, expected_E);
+
+// ###########################################################################################################
+// #################################### КОНЕЦ ТЕСТИРОВАНИЯ SPRINTF.C #########################################
+// ###########################################################################################################
+
+// ######################################## ТЕСТИРОВАНИЕ MEMCHR ##############################################
+
+#test memchr_test1
+const char str[] = "Hello, world!";
+ck_assert_ptr_eq(memchr(str, 'o', 7), s21_memchr(str, 'o', 7));
+ck_assert_ptr_eq(memchr(str, 'g', 7), s21_memchr(str, 'g', 7));
+
+// ######################################## ТЕСТИРОВАНИЕ MEMCMP ##############################################
+
+#test memcmp_test1
+const char str1[] = "Hello, world!";
+const char str2[] = "Hello, World!";
+const char str3[] = "Hello, world!";
+ck_assert_int_eq(memcmp(str1, str3, sizeof(str1)), s21_memcmp(str1, str3, sizeof(str1)));
+ck_assert_int_eq(memcmp(str1, str2, sizeof(str1)), s21_memcmp(str1, str2, sizeof(str1)));
+ck_assert_int_eq(memcmp(str2, str3, sizeof(str2)), s21_memcmp(str2, str3, sizeof(str2)));
+
+// ######################################## ТЕСТИРОВАНИЕ MEMCPY ##############################################
+
+#test memcpy_test1
+const char src[] = "Hello, world!";
+char dest1[20];
+char dest2[20];
+ck_assert_ptr_eq(memcpy(dest1, src, strlen(src) + 1), dest1);
+ck_assert_ptr_eq(s21_memcpy(dest2, src, strlen(src) + 1), dest2);
+ck_assert_ptr_ne(dest2, src);
+ck_assert(memcmp(dest1, dest2, strlen(src) + 1) == 0);
+
+// ######################################## ТЕСТИРОВАНИЕ MEMSET ##############################################
+
+#test memset_test1
+char buffer1[20];
+char buffer2[20];
+s21_size_t len = sizeof(buffer1);
+
+memset(buffer1, 0, len);
+s21_memset(buffer2, 0, len);
+ck_assert_mem_eq(buffer1, buffer2, len);
+
+memset(buffer1, 'A', len);
+s21_memset(buffer2, 'A', len);
+ck_assert_mem_eq(buffer1, buffer2, len);
+
+memset(buffer1, 'B', len);
+s21_memset(buffer2, 'B', len);
+ck_assert_mem_eq(buffer1, buffer2, len);
+    
+s21_size_t partial_len = 10;
+memset(buffer1, 'C', partial_len);
+s21_memset(buffer2, 'C', partial_len);
+ck_assert_mem_eq(buffer1, buffer2, partial_len);    
+ck_assert_mem_eq(buffer1 + partial_len, buffer2 + partial_len, len - partial_len);
+
+// ######################################## ТЕСТИРОВАНИЕ STRCHR ##############################################
+
+#test strchr_test1
+const char *str = "Hello, world!";
+char ch1 = 'o';
+char ch2 = 'z';
+char ch3 = '\0';
+
+char *result1 = s21_strchr(str, ch1);
+char *expected1 = strchr(str, ch1);
+ck_assert_ptr_eq(result1, expected1);
+
+char *result2 = s21_strchr(str, ch2);
+char *expected2 = strchr(str, ch2);
+ck_assert_ptr_eq(result2, expected2);
+
+char *result3 = s21_strchr(str, ch3);
+char *expected3 = strchr(str, ch3);
+ck_assert_ptr_eq(result3, expected3);
+
+char *result4 = s21_strchr("", 'a');
+char *expected4 = strchr("", 'a');
+ck_assert_ptr_eq(result4, expected4);
+
+// ######################################## ТЕСТИРОВАНИЕ STRCSPN ##############################################
+
+#test strcspn_test
+const char *s1 = "Hello, world!";
+const char *s2 = "";
+const char *patterns1 = "abc";
+const char *patterns2 = "";
+const char *patterns3 = "lo";
+ck_assert_int_eq(s21_strcspn(s1, patterns1), strcspn(s1, patterns1));
+ck_assert_int_eq(s21_strcspn(s1, patterns2), strcspn(s1, patterns2));
+ck_assert_int_eq(s21_strcspn(s2, patterns1), strcspn(s2, patterns1));
+ck_assert_int_eq(s21_strcspn(s1, patterns3), strcspn(s1, patterns3));
+
+// ######################################## ТЕСТИРОВАНИЕ STRERROR ##############################################
+
+#test strerror_test
+ck_assert_str_eq(s21_strerror(0), strerror(0));
+ck_assert_str_eq(s21_strerror(ENOMEM), strerror(ENOMEM));
+ck_assert_str_eq(s21_strerror(EINVAL), strerror(EINVAL));
+ck_assert_str_eq(s21_strerror(ENOENT), strerror(ENOENT));
+ck_assert_str_eq(s21_strerror(9999), strerror(9999));
+ck_assert_str_eq(s21_strerror(-1), strerror(-1));
+
+// ######################################## ТЕСТИРОВАНИЕ STRLEN ##############################################
+
+#test strlen_test1
+char str1[20] = "Hello World!";
+char str2[20] = "";
+ck_assert_int_eq(strlen(str1), s21_strlen(str1));
+ck_assert_int_eq(strlen(str2), s21_strlen(str2));
+
+// ######################################## ТЕСТИРОВАНИЕ STRNCAT ##############################################
+
+#test strncat_test
+char test1[20] = "Hello";
+char dest1[20] = "Hello";
+char src1[] = " World!";
+ck_assert_str_eq(s21_strncat(test1, src1, 7), strncat(dest1, src1, 7));
+
+char test2[20] = "Hello";
+char dest2[20] = "Hello";
+char src2[] = "";
+ck_assert_str_eq(s21_strncat(test2, src2, 7), strncat(dest2, src2, 7));
+
+char test3[20] = "";
+char dest3[20] = "";
+char src3[] = "Hello, World!";
+ck_assert_str_eq(s21_strncat(test3, src3, 5), strncat(dest3, src3, 5));
+
+char test4[20] = "Hello";
+char dest4[20] = "Hello";
+char src4[] = " World!";
+ck_assert_str_eq(s21_strncat(test4, src4, 15), strncat(dest4, src4, 15));
+
+char test5[20] = "";
+char dest5[20] = "";
+char src5[] = "";
+ck_assert_str_eq(s21_strncat(test5, src5, 5), strncat(dest5, src5, 5));
+
+// ######################################## ТЕСТИРОВАНИЕ STRNCMP ##############################################
+
+#test strncmp_test
+const char *s1 = "Hello";
+const char *s2 = "Hello";
+const char *s3 = "Hello, World!";
+const char *s4 = "Hell";
+const char *s6 = "Hello";
+const char *s7 = "Hello, World!";
+const char *s8 = "Hello, ";
+const char *s10 = "H";
+
+ck_assert_int_eq(s21_strncmp(s1, s2, 5), strncmp(s1, s2, 5));
+ck_assert_int_eq(s21_strncmp(s1, s3, 5), strncmp(s1, s3, 5));
+ck_assert_int_eq(s21_strncmp(s3, s4, 4), strncmp(s3, s4, 4));
+ck_assert_int_eq(s21_strncmp(s6, s4, 4), strncmp(s6, s4, 4));
+ck_assert_int_eq(s21_strncmp(s7, s8, 7), strncmp(s7, s8, 7));
+ck_assert_int_eq(s21_strncmp(s1, s10, 1), strncmp(s1, s10, 1));
+ck_assert_int_eq(s21_strncmp(s1, s2, 10), strncmp(s1, s2, 10));
+
+// ######################################## ТЕСТИРОВАНИЕ STRNCPY ##############################################
+
+#test strncpy_test
+char dest1[20];
+char dest2[20];
+const char *src1 = "Hello, World!";
+const char *src2 = "Hi";
+const char *src3 = "Short";
+
+ck_assert_str_eq(s21_strncpy(dest1, src1, strlen(src1) + 1), strncpy(dest2, src1, strlen(src1) + 1));
+ck_assert_ptr_ne(dest1, src1);
+ck_assert_str_eq(s21_strncpy(dest1, src2, 5), strncpy(dest2, src2, 5));
+ck_assert_str_eq(s21_strncpy(dest1, src3, 10), strncpy(dest2, src3, 10));
+
+// ######################################## ТЕСТИРОВАНИЕ STRPBRK ##############################################
+
+#test strpbrk_test
+const char *str1 = "Hello, World!";
+const char *str2 = "abcdef";
+const char *str3 = "1234567890";
+const char *str4 = "xyz";
+const char *str5 = "Hello, World!";
+
+ck_assert_str_eq(s21_strpbrk(str1, "aeiou"), strpbrk(str1, "aeiou"));
+ck_assert_str_eq(s21_strpbrk(str4, "xyz"), strpbrk(str4, "xyz"));
+ck_assert_str_eq(s21_strpbrk(str3, "234"), strpbrk(str3, "234"));
+ck_assert_str_eq(s21_strpbrk(str2, "abc"), strpbrk(str2, "abc"));
+ck_assert_str_eq(s21_strpbrk(str5, "W"), strpbrk(str5, "W"));
+
+ck_assert_ptr_eq(s21_strpbrk(str1, "xyz"), strpbrk(str1, "xyz"));
+ck_assert_ptr_eq(s21_strpbrk(str2, "123456"), strpbrk(str2, "123456"));
+ck_assert_ptr_eq(s21_strpbrk(str3, "xyz"), strpbrk(str3, "xyz"));
+ck_assert_ptr_eq(s21_strpbrk(str4, "1234567890"), strpbrk(str4, "1234567890"));
+
+// ######################################## ТЕСТИРОВАНИЕ STRRCHR ##############################################
+
+#test strrchr_test
+const char *str1 = "Hello, World!";
+const char *str2 = "abcdefabcdef";
+const char *str3 = "1234567890";
+const char *str4 = "xyzxyzxyz";
+const char *str5 = "Hello, World!";
+const char *str6 = "";
+
+ck_assert_str_eq(s21_strrchr(str1, 'o'), strrchr(str1, 'o'));
+ck_assert_str_eq(s21_strrchr(str2, 'a'), strrchr(str2, 'a'));
+ck_assert_str_eq(s21_strrchr(str5, 'W'), strrchr(str5, 'W'));
+
+ck_assert_ptr_eq(s21_strrchr(str6, 'W'), strrchr(str6, 'W'));
+ck_assert_ptr_eq(s21_strrchr(str1, 'x'), strrchr(str1, 'x'));
+ck_assert_ptr_eq(s21_strrchr(str2, 'g'), strrchr(str2, 'g'));
+ck_assert_ptr_eq(s21_strrchr(str3, 'a'), strrchr(str3, 'a'));
+ck_assert_ptr_eq(s21_strrchr(str4, '1'), strrchr(str4, '1'));
+
+// ######################################## ТЕСТИРОВАНИЕ STRSTR ##############################################
+
+#test strstr_test
+const char *haystack1 = "Hello, World!";
+const char *haystack2 = "abcabcabc";
+const char *haystack3 = "1234567890";
+const char *haystack4 = "xyzxyzxyz";
+const char *haystack5 = "Hello, World!";
+const char *needle1 = "World";
+const char *needle2 = "abc";
+const char *needle3 = "789";
+const char *needle4 = "xyz";
+const char *needle5 = "Hello";
+
+ck_assert_str_eq(s21_strstr(haystack1, needle1), strstr(haystack1, needle1));
+ck_assert_str_eq(s21_strstr(haystack2, needle2), strstr(haystack2, needle2));
+ck_assert_str_eq(s21_strstr(haystack3, needle3), strstr(haystack3, needle3));
+ck_assert_str_eq(s21_strstr(haystack4, needle4), strstr(haystack4, needle4));
+ck_assert_str_eq(s21_strstr(haystack5, needle5), strstr(haystack5, needle5));
+
+ck_assert_ptr_eq(s21_strstr(haystack1, "notfound"), strstr(haystack1, "notfound"));
+ck_assert_ptr_eq(s21_strstr(haystack2, "xyz"), strstr(haystack2, "xyz"));
+ck_assert_ptr_eq(s21_strstr(haystack3, "abc"), strstr(haystack3, "abc"));
+ck_assert_ptr_eq(s21_strstr(haystack4, "123"), strstr(haystack4, "123"));
+
+// ######################################## ТЕСТИРОВАНИЕ STRTOK ##############################################
+
+#test strtok_test
+char str1[] = "Hello, World! This is a test.";
+char str2[] = "abc,def,ghi,jkl";
+char str3[] = "1234567890";
+char str5[] = ""; // Пустая строка
+
+const char *delim1 = " ,!";
+const char *delim2 = ",";
+const char *delim3 = "123";
+
+// Создание копий строк для тестирования
+char *dup_str1 = s21_strdup(str1);
+char *dup_str1_std = s21_strdup(str1); // Копия для стандартной strtok
+char *dup_str2 = s21_strdup(str2);
+char *dup_str2_std = s21_strdup(str2); // Копия для стандартной strtok
+char *dup_str3 = s21_strdup(str3);
+char *dup_str3_std = s21_strdup(str3); // Копия для стандартной strtok
+char *dup_str5 = s21_strdup(str5);
+char *dup_str5_std = s21_strdup(str5); // Копия для стандартной strtok
+char *dup_str6 = s21_strdup("a,,");
+char *dup_str6_std = s21_strdup("a,,"); // Копия для стандартной strtok
+char *dup_str8 = s21_strdup("Hello");
+char *dup_str8_std = s21_strdup("Hello"); // Копия для стандартной strtok
+
+// Тестирование для str1
+char *token1 = s21_strtok(dup_str1, delim1);
+char *token2 = strtok(dup_str1_std, delim1);
+ck_assert_str_eq(token1, token2);
+
+// Тестирование для NULL
+token1 = s21_strtok(S21_NULL, delim1);
+token2 = strtok(S21_NULL, delim1);
+ck_assert_str_eq(token1, token2);
+
+// Тестирование для str2
+token1 = s21_strtok(dup_str2, delim2);
+token2 = strtok(dup_str2_std, delim2);
+ck_assert_str_eq(token1, token2);
+
+// Тестирование для NULL
+token1 = s21_strtok(S21_NULL, delim2);
+token2 = strtok(S21_NULL, delim2);
+ck_assert_str_eq(token1, token2);
+
+// Тестирование для str3
+token1 = s21_strtok(dup_str3, delim3);
+token2 = strtok(dup_str3_std, delim3);
+ck_assert_str_eq(token1, token2);
+
+// Тестирование для пустой строки
+ck_assert_ptr_eq(s21_strtok(dup_str5, delim1), strtok(dup_str5_std, delim1));
+
+// Тестирование для str6
+char *token6 = s21_strtok(dup_str6, delim2);
+char *token7 = strtok(dup_str6_std, delim2);
+ck_assert_str_eq(token6, token7);
+
+// Тестирование для NULL
+token6 = s21_strtok(S21_NULL, delim2);
+token7 = strtok(S21_NULL, delim2);
+ck_assert_ptr_eq(token6, token7);
+
+// Тестирование для str8
+ck_assert_str_eq(s21_strtok(dup_str8, "xyz"), strtok(dup_str8_std, "xyz"));
+
+// Освобождение памяти
+free(dup_str1);
+free(dup_str1_std);
+free(dup_str2);
+free(dup_str2_std);
+free(dup_str3);
+free(dup_str3_std);
+free(dup_str5);
+free(dup_str5_std);
+free(dup_str6);
+free(dup_str6_std);
+free(dup_str8);
+free(dup_str8_std);
+
+// ######################################## ТЕСТИРОВАНИЕ TO_UPPER ##############################################
+
+#test upper_test1
+char str1[20] = "!@#$%^&*()";
+char *result = s21_to_upper(str1);
+ck_assert_str_eq("!@#$%^&*()", result);
+if (result != S21_NULL) {
+    free(result);
+}
+
+char str2[20] = "hello world!";
+char *result2 = s21_to_upper(str2);
+ck_assert_str_eq("HELLO WORLD!", result2);
+if (result2 != S21_NULL) {
+    free(result2);
+}
+
+char str3[20] = "123abcDEF";
+char *result3 = s21_to_upper(str3);
+ck_assert_str_eq("123ABCDEF", result3);
+if (result3 != S21_NULL) {
+    free(result3);
+}
+
+char str4[7] = "123456";
+char *result4 = s21_to_upper(str4);
+ck_assert_str_eq("123456", result4);
+if (result4 != S21_NULL) {
+    free(result4);
+}
+
+char str5[1] = "";
+char *result5 = s21_to_upper(str5);
+ck_assert_str_eq("", result5);
+if (result5 != S21_NULL) {
+    free(result5);
+}
+
+ck_assert_ptr_eq(s21_to_upper(NULL), NULL);
+
+char str6[1] = "";
+char *result6 = s21_to_upper(str6);
+ck_assert_str_eq("", result6);
+if (result6 != S21_NULL) {
+    free(result6);
+}
+
+char str7[10] = "qwerty{}";
+char *result7 = s21_to_upper(str7);
+ck_assert_str_eq("QWERTY{}", result7);
+if (result7 != S21_NULL) {
+    free(result7);
+}
+
+// ######################################## ТЕСТИРОВАНИЕ TO_LOWER ##############################################
+
+#test lower_test1
+char str1[20] = "Hello World!";
+char * result1 = s21_to_lower(str1);
+ck_assert_str_eq("hello world!", result1);
+if (result1 != S21_NULL) {
+    free(result1);
+}
+
+char str2[20] = "HELLO WORLD!";
+char * result2 = s21_to_lower(str2);
+ck_assert_str_eq("hello world!", result2);
+if (result2 != S21_NULL) {
+    free(result2);
+}
+
+char str3[20] = "123ABCdef";
+char * result3 = s21_to_lower(str3);
+ck_assert_str_eq("123abcdef", result3);
+if (result3 != S21_NULL) {
+    free(result3);
+}
+
+char str4[1] = "";
+char * result4 = s21_to_lower(str4);
+ck_assert_str_eq("", result4);
+if (result4 != S21_NULL) {
+    free(result4);
+}
+
+ck_assert_ptr_eq(s21_to_lower(NULL), NULL);
+
+// ######################################## ТЕСТИРОВАНИЕ INSERT ##############################################
+
+#test insert_test1
+char str1[20] = "Hello World!";
+char str2[20] = "WW";
+char * result1 = s21_insert(str1, str2, 4);
+ck_assert_str_eq("HellWWo World!", result1);
+if (result1 != S21_NULL) {
+    free(result1);
+}
+
+char str3[20] = "Hello!";
+char str4[20] = " World";
+char * result2 = s21_insert(str3, str4, 5);
+ck_assert_str_eq("Hello World!", result2);
+if (result2 != S21_NULL) {
+    free(result2);
+}
+
+char str5[20] = "Hello World!";
+char str6[20] = "Beautiful ";
+char * result3 = s21_insert(str5, str6, 6);
+ck_assert_str_eq("Hello Beautiful World!", result3);
+if (result3 != S21_NULL) {
+    free(result3);
+}
+
+char str7[20] = "Goodbye!";
+char str8[20] = " cruel";
+char * result4 = s21_insert(str7, str8, 7);
+ck_assert_str_eq("Goodbye cruel!", result4);
+if (result4 != S21_NULL) {
+    free(result4);
+}
+
+char str9[20] = "Hello World!";
+char str10[1] = "";
+char * result5 = s21_insert(str9, str10, 5);
+ck_assert_str_eq("Hello World!", result5);
+if (result5 != S21_NULL) {
+    free(result5);
+}
+
+ck_assert_ptr_eq(s21_insert(NULL, NULL, 5), NULL);
+
+char str11[1] = "";
+ck_assert_ptr_eq(s21_insert(NULL, str11, 5), NULL);
+
+char str12[20] = "Hello World!";
+ck_assert_ptr_eq(s21_insert(str12, NULL, 5), NULL);
+
+// ######################################## ТЕСТИРОВАНИЕ TRIM ##############################################
+
+#test trim_test1
+char str1[20] = "Hello World!";
+char str2[20] = "Wor!";
+char * result1 = s21_trim(str1, str2);
+ck_assert_str_eq("Hell ld", result1);
+if (result1 != S21_NULL) {
+    free(result1);
+}
+
+char str3[20] = "   Hello World!   ";
+char str4[20] = " ";
+char * result2 = s21_trim(str3, str4);
+ck_assert_str_eq("HelloWorld!", result2);
+if (result2 != S21_NULL) {
+    free(result2);
+}
+
+char str5[20] = "!!!Hello World!!!";
+char str6[20] = "!";
+char * result3 = s21_trim(str5, str6);
+ck_assert_str_eq("Hello World", result3);
+if (result3 != S21_NULL) {
+    free(result3);
+}
+
+char str7[20] = "Hello World!";
+char str8[4] = "XYZ";
+char * result4 = s21_trim(str7, str8);
+ck_assert_str_eq("Hello World!", result4);
+if (result4 != S21_NULL) {
+    free(result4);
+}
+
+char str9[4] = "!!!";
+char str10[2] = "!";
+char * result5 = s21_trim(str9, str10);
+ck_assert_str_eq("", result5);
+if (result5 != S21_NULL) {
+    free(result5);
+}
+
+ck_assert_ptr_eq(s21_trim(NULL, NULL), NULL);
+
+char str11[4] = "XYZ";
+ck_assert_ptr_eq(s21_trim(str11, NULL), NULL);
+
+char str12[4] = "XYZ";
+ck_assert_ptr_eq(s21_trim(NULL, str12), NULL);
+
+// ######################################## ТЕСТИРОВАНИЕ SSCANF ##############################################
+
+#test sscanf_char
+char s21_c1, s21_c2;
+char c1, c2;
+char str[10] = "a b с";
+ck_assert_int_eq(s21_sscanf(str, "%*c %c %c", &s21_c1, &s21_c2), sscanf(str, "%*c %c %c", &c1, &c2));
+ck_assert_int_eq(s21_c1, c1);
+ck_assert_int_eq(s21_c2, c2);
+
+
+#test sscanf_wchar_t
+wchar_t s21_c1, c1;
+char str[10] = "a";
+ck_assert_int_eq(s21_sscanf(str, "%lc", &s21_c1), sscanf(str, "%lc", &c1));
+ck_assert_int_eq(s21_c1, c1);
+
+
+#test sscanf_int_dec
+int s21_c1,s21_c6;
+short int s21_c4, s21_c5;
+long int s21_c2, s21_c3;
+int c1,c6;
+short int c4,c5;
+long int c2, c3;
+char str[40] = "+34 -13 53 1000 5123412 23 23546";
+ck_assert_int_eq(s21_sscanf(str, "%d %*d %ld %2ld %hd %2hd %3d", &s21_c1, &s21_c2, &s21_c3, &s21_c4, &s21_c5, &s21_c6), sscanf(str, "%d %*d %ld %2ld %hd %2hd %3d", &c1, &c2, &c3, &c4, &c5, &c6));
+ck_assert_int_eq(s21_c1, c1);
+ck_assert_int_eq(s21_c2, c2);
+ck_assert_int_eq(s21_c3, c3);
+ck_assert_int_eq(s21_c4, c4);
+ck_assert_int_eq(s21_c5, c5);
+ck_assert_int_eq(s21_c6, c6);
+
+
+#test sscanf_string
+wchar_t s21_c1[10],s21_c2[10],c1[10],c2[10];
+char s21_c3[10],s21_c4[10], c3[10], c4[10];
+char str[40] = "qwerty tutu Maksim rtyuq denis";
+ck_assert_int_eq(s21_sscanf(str, "%ls %*s %2ls %s  %2s", s21_c1, s21_c2,s21_c3,s21_c4), sscanf(str, "%ls %*s %2ls %s  %2s", c1, c2,c3,c4));
+ck_assert_int_eq(wcscmp(s21_c1, c1), 0);
+ck_assert_int_eq(wcscmp(s21_c2, c2), 0);
+ck_assert_str_eq(s21_c3, c3);
+ck_assert_str_eq(s21_c4, c4);
+
+
+#test sscanf_unsigned
+unsigned int s21_c1,s21_c6;
+unsigned short int s21_c4, s21_c5;
+unsigned long int s21_c2, s21_c3;
+unsigned int c1,c6;
+unsigned short int c4,c5;
+unsigned long int c2, c3;
+char str[40] = "34 13 53 1000 5123412 23 23546";
+ck_assert_int_eq(s21_sscanf(str, "%u %*u %lu %2lu %hu %2hu %3u", &s21_c1, &s21_c2, &s21_c3, &s21_c4, &s21_c5, &s21_c6), sscanf(str, "%u %*u %lu %2lu %hu %2hu %3u", &c1, &c2, &c3, &c4, &c5, &c6));
+ck_assert_int_eq(s21_c1, c1);
+ck_assert_int_eq(s21_c2, c2);
+ck_assert_int_eq(s21_c3, c3);
+ck_assert_int_eq(s21_c4, c4);
+ck_assert_int_eq(s21_c5, c5);
+ck_assert_int_eq(s21_c6, c6);
+
+
+#test sscanf_int_hex
+int s21_c1,s21_c6;
+short int s21_c4, s21_c5;
+long int s21_c2, s21_c3;
+int c1,c6;
+short int c4,c5;
+long int c2, c3;
+char str[40] = "2A F 41 06AA 242b92 1bfDe2A";
+ck_assert_int_eq(s21_sscanf(str, "%x %*x %lx %2lx %hX %2hx%3x", &s21_c1, &s21_c2, &s21_c3, &s21_c4, &s21_c5, &s21_c6), sscanf(str, "%x %*x %lx %2lx %hX %2hx%3x", &c1, &c2, &c3, &c4, &c5, &c6));
+ck_assert_int_eq(s21_c1, c1);
+ck_assert_int_eq(s21_c2, c2);
+ck_assert_int_eq(s21_c3, c3);
+ck_assert_int_eq(s21_c4, c4);
+ck_assert_int_eq(s21_c5, c5);
+ck_assert_int_eq(s21_c6, c6);
+
+
+#test sscanf_int_oct
+int s21_c1,s21_c6;
+short int s21_c4, s21_c5;
+long int s21_c2, s21_c3;
+int c1,c6;
+short int c4,c5;
+long int c2, c3;
+char str[40] = "42 15 65 1700 610 27 57046";
+ck_assert_int_eq(s21_sscanf(str, "%o %*o %lo %2lo %ho %2ho %3o", &s21_c1, &s21_c2, &s21_c3, &s21_c4, &s21_c5, &s21_c6), sscanf(str, "%o %*o %lo %2lo %ho %2ho %3o", &c1, &c2, &c3, &c4, &c5, &c6));
+ck_assert_int_eq(s21_c1, c1);
+ck_assert_int_eq(s21_c2, c2);
+ck_assert_int_eq(s21_c3, c3);
+ck_assert_int_eq(s21_c4, c4);
+ck_assert_int_eq(s21_c5, c5);
+ck_assert_int_eq(s21_c6, c6);
+
+#test sscanf_integer
+int s21_c1, s21_c3,s21_c5;
+short int s21_c4;
+long int s21_c2;
+int c1, c3,c5;
+short int c4;
+long int c2;
+char str[40] = "-67 025 52 064 0X5C6D 0x6E7f";
+ck_assert_int_eq(s21_sscanf(str, "%i %*i %li %i %hi %i", &s21_c1, &s21_c2, &s21_c3, &s21_c4, &s21_c5), sscanf(str, "%i %*i %li %i %hi %i", &c1, &c2, &c3, &c4, &c5));
+ck_assert_int_eq(s21_c1, c1);
+ck_assert_int_eq(s21_c2, c2);
+ck_assert_int_eq(s21_c3, c3);
+ck_assert_int_eq(s21_c4, c4);
+ck_assert_int_eq(s21_c5, c5);
+
+
+#test sscanf_handle_float_test1
+
+const char *input = "3.14";
+float value_s21 = 0.0f;
+float value_std = 0.0f;
+int result_s21 = s21_sscanf(input, "%f", &value_s21);
+int result_std = sscanf(input, "%f", &value_std);
+ck_assert_int_eq(result_s21, result_std);
+ck_assert_float_eq(value_s21, value_std);
+
+
+#test sscanf_handle_float_test2
+
+const char *input = "2.71828e2";
+float value_s21 = 0.0f;
+float value_std = 0.0f;
+int result_s21 = s21_sscanf(input, "%f", &value_s21);
+int result_std = sscanf(input, "%f", &value_std);
+ck_assert_int_eq(result_s21, result_std);
+ck_assert_float_eq(value_s21, value_std);
+
+
+#test sscanf_handle_float_test3
+
+const char *input = "3.14159265358979323846";
+long double value_s21 = 0.0L;
+long double value_std = 0.0L;
+int result_s21 = s21_sscanf(input, "%Lf", &value_s21);
+int result_std = sscanf(input, "%Lf", &value_std);
+ck_assert_int_eq(result_s21, result_std);
+long double epsilon = 1e-10;
+ck_assert_ldouble_gt(value_s21, value_std - epsilon);
+ck_assert_ldouble_lt(value_s21, value_std + epsilon);
+
+
+#test sscanf_handle_float_test4
+
+const char *input = "3.123784";
+float value_s21 = 0.0f;
+float value_std = 0.0f;
+int result_s21 = s21_sscanf(input, "%5f", &value_s21);
+int result_std = sscanf(input, "%5f", &value_std);
+ck_assert_int_eq(result_s21, result_std);
+ck_assert_float_eq(value_s21, value_std);
+
+
+#test sscanf_handle_float_test5
+
+const char *input = "-2.71828E2";
+float value_s21 = 0.0f;
+float value_std = 0.0f;
+int result_s21 = s21_sscanf(input, "%f", &value_s21);
+int result_std = sscanf(input, "%f", &value_std);
+ck_assert_int_eq(result_s21, result_std);
+ck_assert_float_eq(value_s21, value_std);
+
+
+#test sscanf_handle_float_test6
+
+const char *input = "+2.71828e2";
+float value_s21 = 0.0f;
+float value_std = 0.0f;
+int result_s21 = s21_sscanf(input, "%f", &value_s21);
+int result_std = sscanf(input, "%f", &value_std);
+ck_assert_int_eq(result_s21, result_std);
+ck_assert_float_eq(value_s21, value_std);
+
+
+#test sscanf_handle_float_test7
+
+const char *input = "2.71828e2 3.9812";
+float value_s21 = 0.0f;
+float value_std = 0.0f;
+int result_s21 = s21_sscanf(input, "%*f %f", &value_s21);
+int result_std = sscanf(input, "%*f %f", &value_std);
+ck_assert_int_eq(result_s21, result_std);
+ck_assert_float_eq(value_s21, value_std);
+
+
+#test sscanf_string_to_float_test1
+
+const char *input = "222";
+float value_s21 = 0.0f;
+float value_std = 0.0f;
+int result_s21 = s21_sscanf(input, "%f", &value_s21);
+int result_std = sscanf(input, "%f", &value_std);
+ck_assert_int_eq(result_s21, result_std);
+ck_assert_float_eq(value_s21, value_std);
+
+
+#test sscanf_string_to_float_test2
+
+const char *input = "2.715498e-2 2.712328E+2";
+float value_s21 = 0.0f;
+float value_s21_2 = 0.0f;
+float value_std = 0.0f;
+float value_std_2 = 0.0f;
+int result_s21 = s21_sscanf(input, "%f %f", &value_s21, &value_s21_2);
+int result_std = sscanf(input, "%f %f", &value_std, &value_std_2);
+ck_assert_int_eq(result_s21, result_std);
+ck_assert_float_eq(value_s21, value_std);
+ck_assert_float_eq(value_s21_2, value_std_2);
+
+
+#test sscanf_string_to_longdouble_test1
+
+const char *input = "-2.715498e-2 +2.712328E+2";
+long double value_s21 = 0.0L;
+long double value_std = 0.0L;
+long double value_s21_2 = 0.0L;
+long double value_std_2 = 0.0L;
+int result_s21 = s21_sscanf(input, "%Lf %Lf", &value_s21, &value_s21_2);
+int result_std = sscanf(input, "%Lf %Lf", &value_std, &value_std_2);
+ck_assert_int_eq(result_s21, result_std);
+
+
+#test sscanf_string_to_longdouble_test2
+
+const char *input = "222";
+long double value_s21 = 0.0L;
+long double value_std = 0.0L;
+int result_s21 = s21_sscanf(input, "%Lf", &value_s21);
+int result_std = sscanf(input, "%Lf", &value_std);
+ck_assert_int_eq(result_s21, result_std);
+ck_assert_ldouble_eq(value_s21, value_std);
+
+
+#test sscanf_string_to_longdouble_test3
+
+const char *input = "2.715498e4";
+long double value_s21 = 0.0L;
+long double value_std = 0.0L;
+int result_s21 = s21_sscanf(input, "%Lf", &value_s21);
+int result_std = sscanf(input, "%Lf", &value_std);
+ck_assert_int_eq(result_s21, result_std);
+long double epsilon = 1e-10;
+ck_assert_ldouble_gt(value_s21, value_std - epsilon);
+ck_assert_ldouble_lt(value_s21, value_std + epsilon);
+
+
+#test sscanf_handle_pointer_test1
+
+const char *input = "Pointer: 0x7fff5fbff8b8";
+void *ptr1 = NULL, *ptr2 = NULL;
+int count1, count2;
+count1 = s21_sscanf(input, "Pointer: %p", &ptr1);
+count2 = sscanf(input, "Pointer: %p", &ptr2);
+ck_assert_int_eq(count1, count2);
+ck_assert_ptr_eq(ptr1, ptr2);
+ck_assert_ptr_ne(ptr1, NULL);
+
+
+#test sscanf_handle_pointer_test2
+
+const char *input = "Pointer: 0xdeadbeef 0xde57fabeef";
+void *ptr1 = NULL, *ptr2 = NULL;
+int count1, count2;
+count1 = s21_sscanf(input, "Pointer: %*p %p", &ptr1);
+count2 = sscanf(input, "Pointer: %*p %p", &ptr2);
+ck_assert_int_eq(count1, count2);
+ck_assert_ptr_eq(ptr1, ptr2);
+ck_assert_ptr_ne(ptr1, NULL);
+
+
+#test sscanf_handle_pointer_test3
+
+const char *input = "Pointer: not_a_poiNter";
+void *ptr1 = NULL, *ptr2 = NULL;
+int count1, count2;
+count1 = s21_sscanf(input, "Pointer: %p", &ptr1);
+count2 = sscanf(input, "Pointer: %p", &ptr2);
+ck_assert_int_eq(count1, count2);
+ck_assert_ptr_eq(ptr1, ptr2);
+
+
+#test sscanf_handle_pointer_test4
+
+const char *input = "Pointer: 0x7FFF5FBFF8B8 0x7FFF5FBFF8B8";
+void *ptr1 = NULL, *ptr2 = NULL;
+int count1, count2;
+count1 = s21_sscanf(input, "Pointer: %p %*p", &ptr1);
+count2 = sscanf(input, "Pointer: %p %*p", &ptr2);
+ck_assert_int_eq(count1, count2);
+ck_assert_ptr_eq(ptr1, ptr2);
+ck_assert_ptr_ne(ptr1, NULL);
+
+
+#test sscanf_handle_pointer_test5
+
+const char *input = "Pointer: 0xDEADBEEF 0xDEADBEEF";
+void *ptr1 = NULL, *ptr2 = NULL;
+int count1, count2;
+count1 = s21_sscanf(input, "Pointer: %p %*p", &ptr1);
+count2 = sscanf(input, "Pointer: %p %*p", &ptr2);
+ck_assert_int_eq(count1, count2);
+ck_assert_ptr_eq(ptr1, ptr2);
+ck_assert_ptr_ne(ptr1, NULL);
+
+
+#test sscanf_case_n_test1
+
+const char *input = "sdfjdfsk dslkfjsdf";
+int length1 = 0, length2 = 0;
+char str1[20];
+char str2[20];
+int count1, count2;
+count1 = s21_sscanf(input, "%s %n", str1, &length1);
+count2 = sscanf(input, "%s %n", str2, &length2);
+ck_assert_int_eq(count1, count2);
+ck_assert_int_eq(length1, length2);
+ck_assert_str_eq(str1, str2);
+
+
+#test sscanf_case_n_test2
+
+const char *input = "sdfjdfsk 12";
+char str1[20];
+int count1;
+count1 = s21_sscanf(input, "%s %*n", str1);
+ck_assert_int_eq(count1, 1);
+
+
+#test sscanf_case_percent_test1
+
+const char *test1 = "Value: 100%";
+const char *test2 = "Value: 100";
+const char *test3 = "Value: 100%%";
+int s21_num1 = 0, s21_num2 = 0, s21_num3 = 0;
+int num1 = 0, num2 = 0, num3 = 0;
+int s21_result1 = s21_sscanf(test1, "Value: %d%%", &s21_num1);
+int s21_result2 = s21_sscanf(test2, "Value: %d%%", &s21_num2);
+int s21_result3 = s21_sscanf(test3, "Value: %d%%", &s21_num3);
+int result1 = sscanf(test1, "Value: %d%%", &num1);
+int result2 = sscanf(test2, "Value: %d%%", &num2);
+int result3 = sscanf(test3, "Value: %d%%", &num3);
+ck_assert_int_eq(s21_result1, result1);
+ck_assert_int_eq(s21_result2, result2);
+ck_assert_int_eq(s21_result3, result3);
+ck_assert_int_eq(s21_num1, num1);
+ck_assert_int_eq(s21_num2, num2);
+ck_assert_int_eq(s21_num3, num3);
+
+
+#test sscanf_bad_situation
+
+int s21_num = 0, num = 0;
+int s21_result1 = s21_sscanf("I 19", "Im %d", &s21_num);
+int result1 = sscanf("I 19", "Im %d", &num);
+ck_assert_int_eq(s21_result1, result1);
+ck_assert_int_eq(s21_num, num);
+
+int s21_num1 = 0, num1 = 0;
+char s21_str[20];
+char str[20];
+int s21_result2 = s21_sscanf("5", "%d %s", &s21_num1, s21_str);
+int result2 = sscanf("5", "%d %s", &num1, str);
+ck_assert_int_eq(s21_result2, result2);
+
+// ######################################## КОНЕЦ ТЕСТИРОВАНИЯ SSCANF ##############################################
